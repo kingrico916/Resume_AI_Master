@@ -126,6 +126,46 @@
             border-color: #667eea;
             box-shadow: 0 3px 12px rgba(102,126,234,0.15);
         }
+        .candidate-card.selected {
+            border-color: #667eea;
+            background: #eef0fd;
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.25);
+        }
+        .card-checkbox {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            display: none;
+        }
+        .select-mode .card-checkbox { display: block; }
+        .select-mode .candidate-card { cursor: default; }
+
+        .bulk-bar {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            background: #667eea;
+            color: white;
+            padding: 10px 16px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            font-size: 0.88em;
+            font-weight: 600;
+        }
+        .bulk-bar.visible { display: flex; }
+        .bulk-bar button {
+            padding: 5px 14px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.85em;
+            font-weight: 700;
+        }
+        .bulk-bar .btn-bulk-delete { background: #f44336; color: white; }
+        .bulk-bar .btn-bulk-cancel { background: rgba(255,255,255,0.25); color: white; }
 
         .card-name {
             font-size: 1.05em;
@@ -405,6 +445,15 @@
     <!-- Controls -->
     <div class="controls">
         <input type="text" id="searchInput" placeholder="Search candidates..." oninput="applyFilters()">
+        <button class="btn btn-secondary btn-sm" onclick="toggleSelectMode()" id="selectToggleBtn">Select</button>
+    </div>
+
+    <!-- Bulk action bar (visible in select mode) -->
+    <div class="bulk-bar" id="bulkBar">
+        <span id="bulkCount">0 selected</span>
+        <button class="btn-bulk-delete" onclick="bulkDelete()">Delete Selected</button>
+        <button class="btn-bulk-cancel" onclick="toggleSelectMode()">Cancel</button>
+        <button class="btn-bulk-cancel" onclick="selectAllVisible()" style="margin-left:auto;">Select All</button>
     </div>
 
     <!-- Pipeline pills -->
@@ -774,7 +823,8 @@ function renderCandidates() {
     grid.innerHTML = '';
     filtered.forEach(c => {
         const card = document.createElement('div');
-        card.className = 'candidate-card';
+        card.className = 'candidate-card' + (selectedIds.has(c.id) ? ' selected' : '');
+        card.dataset.id = c.id;
         const label = STAGE_LABELS[c.stage] || c.stage;
         const color = STAGE_COLORS[c.stage] || '#667eea';
         const subCount = c.submission_count || 0;
@@ -783,6 +833,8 @@ function renderCandidates() {
             : 'No emails sent';
 
         card.innerHTML = `
+            <input type="checkbox" class="card-checkbox" ${selectedIds.has(c.id) ? 'checked' : ''}
+                   onclick="event.stopPropagation(); toggleCardSelect(${c.id}, this.closest('.candidate-card'))">
             <span class="stage-badge" style="background:${color}">${label}</span>
             <div class="card-name">${c.first_name} ${c.last_name}</div>
             <div class="card-meta">
@@ -798,7 +850,9 @@ function renderCandidates() {
                         onclick="event.stopPropagation(); goToEmailManagerFor(${c.id})">Email</button>
             </div>
         `;
-        card.onclick = () => openDetail(c.id);
+        card.onclick = () => selectMode
+            ? toggleCardSelect(c.id, card)
+            : openDetail(c.id);
         grid.appendChild(card);
     });
 }
@@ -991,6 +1045,64 @@ async function saveNotes() {
     } catch(e) {
         showToast('Save failed', 'error');
     }
+}
+
+// ── Bulk select ────────────────────────────────────────────────────────────
+let selectMode = false;
+const selectedIds = new Set();
+
+function toggleSelectMode() {
+    selectMode = !selectMode;
+    selectedIds.clear();
+    document.getElementById('candidateGrid').classList.toggle('select-mode', selectMode);
+    document.getElementById('bulkBar').classList.toggle('visible', selectMode);
+    document.getElementById('selectToggleBtn').textContent = selectMode ? 'Done' : 'Select';
+    updateBulkCount();
+    renderCandidates();
+}
+
+function toggleCardSelect(id, card) {
+    if (selectedIds.has(id)) {
+        selectedIds.delete(id);
+        card.classList.remove('selected');
+    } else {
+        selectedIds.add(id);
+        card.classList.add('selected');
+    }
+    updateBulkCount();
+}
+
+function selectAllVisible() {
+    document.querySelectorAll('#candidateGrid .candidate-card').forEach(card => {
+        const id = parseInt(card.dataset.id);
+        selectedIds.add(id);
+        card.classList.add('selected');
+        const cb = card.querySelector('.card-checkbox');
+        if (cb) cb.checked = true;
+    });
+    updateBulkCount();
+}
+
+function updateBulkCount() {
+    const n = selectedIds.size;
+    document.getElementById('bulkCount').textContent = `${n} selected`;
+}
+
+async function bulkDelete() {
+    const n = selectedIds.size;
+    if (n === 0) return;
+    if (!confirm(`Delete ${n} candidate${n !== 1 ? 's' : ''}? This cannot be undone.`)) return;
+    const ids = [...selectedIds];
+    let deleted = 0;
+    for (const id of ids) {
+        try {
+            await fetch(`/api/candidates/${id}`, { method: 'DELETE' });
+            deleted++;
+        } catch(e) {}
+    }
+    showToast(`${deleted} candidate${deleted !== 1 ? 's' : ''} deleted`, 'success');
+    toggleSelectMode();
+    await loadCandidates();
 }
 
 // ── Delete ─────────────────────────────────────────────────────────────────
