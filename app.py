@@ -2722,8 +2722,8 @@ if __name__ == '__main__':
         f" | Graph: {'OK' if _graph_ok else 'NOT SET'}"
         f" | http://localhost:5001\n"
     )
-    threading.Timer(5, run_ghost_check).start()
-    threading.Timer(30, run_inbox_poll).start()
-    threading.Timer(10, run_folder_watcher).start()
+    threading.Timer(15,  run_folder_watcher).start()  # 15s — fast, just watches a directory
+    threading.Timer(60,  run_inbox_poll).start()       # 60s — give Flask time to be fully ready
+    threading.Timer(120, run_ghost_check).start()      # 2min — send after inbox poll, not before
 
     app.run(host='0.0.0.0', port=5001, debug=True, use_reloader=False)
