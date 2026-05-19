@@ -242,6 +242,50 @@ def init_db():
         )
     """)
 
+    # Users — login accounts for VSCs and admins
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            email         TEXT UNIQUE NOT NULL,
+            display_name  TEXT NOT NULL,
+            password_hash TEXT NOT NULL,
+            role          TEXT NOT NULL DEFAULT 'vsc',
+            is_active     INTEGER NOT NULL DEFAULT 1
+        )
+    """)
+
+    conn.commit()
+    conn.close()
+
+
+# ── Users ─────────────────────────────────────────────────────────────────────
+
+def get_user_by_email(email: str):
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT * FROM users WHERE email = ? AND is_active = 1",
+        (email.lower().strip(),)
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def get_user_by_id(user_id: int):
+    conn = get_connection()
+    row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def seed_users(users: list):
+    """Insert users that don't exist yet. Each dict needs email, display_name, password_hash, role."""
+    conn = get_connection()
+    for u in users:
+        conn.execute(
+            "INSERT OR IGNORE INTO users (email, display_name, password_hash, role) VALUES (?, ?, ?, ?)",
+            (u['email'].lower().strip(), u['display_name'], u['password_hash'], u['role'])
+        )
     conn.commit()
     conn.close()
 

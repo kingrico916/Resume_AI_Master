@@ -29,6 +29,8 @@ from pathlib import Path
 import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from functools import wraps
+from werkzeug.security import generate_password_hash, check_password_hash
 from data.database import (
     init_db, log_email, get_email_history, get_email_stats,
     create_candidate, get_candidates, get_candidate, update_candidate,
@@ -39,6 +41,7 @@ from data.database import (
     log_engagement, get_engagements, get_candidates_needing_followup,
     save_custom_template, get_custom_templates, delete_custom_template,
     log_job_upload, get_last_job_upload, delete_job_by_title,
+    get_user_by_email, get_user_by_id, seed_users,
     PIPELINE_STAGES, STAGE_LABELS, STAGE_COLORS, MILITARY_BRANCHES,
     ENGAGEMENT_TYPES, ENGAGEMENT_SUBTYPES, ENGAGEMENT_TYPE_LABELS, ENGAGEMENT_SUBTYPE_LABELS
 )
@@ -59,6 +62,7 @@ from core.checklist_generator import ChecklistGenerator
 from core.audit_logger import AuditLogger
 
 app = Flask(__name__)
+app.secret_key = os.getenv('SECRET_KEY', 'dev-change-me-in-production')
 app.config['DEBUG'] = os.getenv('FLASK_DEBUG', 'false').lower() == 'true'
 logging.getLogger('werkzeug').setLevel(logging.ERROR)
 
@@ -69,6 +73,20 @@ app.config['MAX_CONTENT_LENGTH'] = 200 * 1024 * 1024  # 200MB max
 
 # Initialize database tables on startup
 init_db()
+
+_SEED_USERS = [
+    {"email": "tracey.huerta@workforwarriors.org",     "display_name": "Tracey Huerta",     "role": "vsc"},
+    {"email": "philip.downs@workforwarriors.org",      "display_name": "Philip Downs",      "role": "vsc"},
+    {"email": "damon.oliver@workforwarriors.org",      "display_name": "Damon Oliver",      "role": "vsc"},
+    {"email": "chuck.callahan@workforwarriors.org",    "display_name": "Chuck Callahan",    "role": "vsc"},
+    {"email": "martin.rivera@workforwarriors.org",     "display_name": "Martin Rivera",     "role": "vsc"},
+    {"email": "stevenrosales@workforwarriors.org",     "display_name": "Steven Rosales",    "role": "vsc"},
+    {"email": "shayal.prasad@workforwarriors.org",     "display_name": "Shayal Prasad",     "role": "vsc"},
+    {"email": "anthony.antonucci@workforwarriors.org", "display_name": "Anthony Antonucci", "role": "admin"},
+    {"email": "ryan.mcgrath@workforwarriors.org",      "display_name": "Ryan McGrath",      "role": "admin"},
+]
+_pw = generate_password_hash("WFW2026!")
+seed_users([{**u, "password_hash": _pw} for u in _SEED_USERS])
 
 # Configuration
 OPENROUTER_API_KEY  = os.getenv("OPENROUTER_API_KEY", "")
@@ -973,19 +991,78 @@ def parse_vsc_analysis(raw, credits=None):
     return parsed
 
 
+# ── Auth ──────────────────────────────────────────────────────────────────────
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(url_for('login_page'))
+        return f(*args, **kwargs)
+    return decorated
+
+
+def api_login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if 'user_id' not in session:
+            return jsonify({'error': 'Authentication required'}), 401
+        return f(*args, **kwargs)
+    return decorated
+
+
+@app.context_processor
+def inject_user():
+    if 'user_id' in session:
+        return {'current_user': {
+            'name':  session.get('vsc_name', ''),
+            'email': session.get('vsc_email', ''),
+            'role':  session.get('role', 'vsc'),
+        }}
+    return {'current_user': None}
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login_page():
+    if 'user_id' in session:
+        return redirect(url_for('home'))
+    error = None
+    if request.method == 'POST':
+        email    = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '')
+        user     = get_user_by_email(email)
+        if user and check_password_hash(user['password_hash'], password):
+            session['user_id']   = user['id']
+            session['vsc_name']  = user['display_name']
+            session['vsc_email'] = user['email']
+            session['role']      = user['role']
+            return redirect(url_for('home'))
+        error = 'Invalid email or password.'
+    return render_template('login.html', error=error)
+
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login_page'))
+
+
 @app.route('/')
+@login_required
 def home():
     """Mode selector landing page"""
     return render_template('home.html')
 
 
 @app.route('/manual')
+@login_required
 def index():
     """Manual mode  VSC-operated Resume AI"""
     return render_template('index.html', jobs_loaded=len(JOBS_DB))
 
 
 @app.route('/load_jobs', methods=['POST'])
+@api_login_required
 def load_jobs():
     """Accept a job CSV upload and geocode + save it in a background thread."""
     global JOBS_DB, JOB_LOAD_STATUS
@@ -1100,6 +1177,7 @@ def load_jobs():
 
 
 @app.route('/api/jobs/status', methods=['GET'])
+@api_login_required
 def jobs_status():
     """Return current job-load progress."""
     return jsonify({
@@ -1112,6 +1190,7 @@ def jobs_status():
 
 
 @app.route('/analyze', methods=['POST'])
+@api_login_required
 def analyze_resume():
     """Analyze resume against target job + recommend alternatives"""
     try:
@@ -1183,6 +1262,7 @@ def analyze_resume():
 
 
 @app.route('/search_jobs', methods=['POST'])
+@api_login_required
 def search_jobs():
     """Search jobs by location"""
     try:
@@ -1227,6 +1307,7 @@ def search_jobs():
 
 
 @app.route('/api/jobs/search', methods=['GET'])
+@api_login_required
 def jobs_search_by_title():
     """Search jobs by title text. Returns up to 50 matches."""
     q = request.args.get('q', '').strip().lower()
@@ -1248,12 +1329,14 @@ def jobs_search_by_title():
 
 
 @app.route('/api/jobs/db-age', methods=['GET'])
+@api_login_required
 def jobs_db_age():
     """Return last upload timestamp and age in days."""
     return jsonify(get_last_job_upload())
 
 
 @app.route('/api/jobs/prune', methods=['DELETE'])
+@api_login_required
 def jobs_prune():
     """Delete all jobs matching a title from the DB and in-memory cache."""
     global JOBS_DB
@@ -1267,6 +1350,7 @@ def jobs_prune():
 
 
 @app.route('/generate_package', methods=['POST'])
+@api_login_required
 def generate_calcareers_package():
     """Generate CalCareers application package"""
     try:
@@ -1400,12 +1484,14 @@ def health():
 #  Email Manager 
 
 @app.route('/email-manager')
+@login_required
 def email_manager():
     """Email manager page"""
     return render_template('email_manager.html')
 
 
 @app.route('/api/templates', methods=['GET'])
+@api_login_required
 def get_templates():
     """Return built-in templates + VSC-saved custom templates."""
     built_in = [
@@ -1424,6 +1510,7 @@ def get_templates():
 
 
 @app.route('/api/templates', methods=['POST'])
+@api_login_required
 def create_template():
     """Save a VSC-authored custom template."""
     data = request.json or {}
@@ -1446,6 +1533,7 @@ def create_template():
 
 
 @app.route('/api/templates/<key>', methods=['DELETE'])
+@api_login_required
 def delete_template(key):
     """Delete a custom template."""
     if not key.startswith('custom_'):
@@ -1455,6 +1543,7 @@ def delete_template(key):
 
 
 @app.route('/api/preview_email', methods=['POST'])
+@api_login_required
 def preview_email_route():
     """Render a template with variables and return subject + body (no send)"""
     data         = request.json
@@ -1466,19 +1555,20 @@ def preview_email_route():
 
 
 @app.route('/api/send_email', methods=['POST'])
+@api_login_required
 def send_email_route():
     """Send an email and log it"""
     data = request.json
 
-    vsc_name     = data.get('vsc_name', '').strip()
-    vsc_email    = data.get('vsc_email', '').strip()
+    vsc_name     = session['vsc_name']
+    vsc_email    = session['vsc_email']
     to_name      = data.get('to_name', '').strip()
     to_email     = data.get('to_email', '').strip()
     template_key = data.get('template_key', '').strip()
     subject      = data.get('subject', '').strip()
     body         = data.get('body', '').strip()
 
-    if not all([vsc_name, to_name, to_email, subject, body]):
+    if not all([to_name, to_email, subject, body]):
         return jsonify({'success': False, 'error': 'Missing required fields'}), 400
 
     from data.email_templates import get_template
@@ -1541,6 +1631,7 @@ def send_email_route():
 
 
 @app.route('/api/email_history', methods=['GET'])
+@api_login_required
 def email_history_route():
     """Return recent email log"""
     candidate_email = request.args.get('candidate_email')
@@ -1551,6 +1642,7 @@ def email_history_route():
 #  CRM 
 
 @app.route('/crm')
+@login_required
 def crm():
     return render_template('crm.html',
                            pipeline_stages=PIPELINE_STAGES,
@@ -1564,23 +1656,30 @@ def crm():
 
 
 @app.route('/api/candidates', methods=['GET'])
+@api_login_required
 def candidates_list():
-    vsc_name = request.args.get('vsc_name')
-    stage    = request.args.get('stage')
-    search   = request.args.get('search')
+    if session.get('role') == 'admin':
+        vsc_name = request.args.get('vsc_name')  # admin can filter by any VSC or see all
+    else:
+        vsc_name = session['vsc_name']
+    stage  = request.args.get('stage')
+    search = request.args.get('search')
     return jsonify({'candidates': get_candidates(vsc_name=vsc_name, stage=stage, search=search)})
 
 
 @app.route('/api/candidates', methods=['POST'])
+@api_login_required
 def candidates_create():
     data = request.json
-    if not data.get('first_name') or not data.get('last_name') or not data.get('vsc_name'):
-        return jsonify({'error': 'first_name, last_name, and vsc_name are required'}), 400
+    if not data.get('first_name') or not data.get('last_name'):
+        return jsonify({'error': 'first_name and last_name are required'}), 400
+    data['vsc_name'] = session['vsc_name']
     cid = create_candidate(data)
     return jsonify({'success': True, 'id': cid})
 
 
 @app.route('/api/candidates/<int:cid>', methods=['GET'])
+@api_login_required
 def candidates_get(cid):
     candidate = get_candidate(cid)
     if not candidate:
@@ -1591,6 +1690,7 @@ def candidates_get(cid):
 
 
 @app.route('/api/candidates/<int:cid>', methods=['PUT'])
+@api_login_required
 def candidates_update(cid):
     data = request.json
     ok = update_candidate(cid, data)
@@ -1598,19 +1698,25 @@ def candidates_update(cid):
 
 
 @app.route('/api/candidates/<int:cid>', methods=['DELETE'])
+@api_login_required
 def candidates_delete(cid):
     ok = delete_candidate(cid)
     return jsonify({'success': ok})
 
 
 @app.route('/api/pipeline_counts', methods=['GET'])
+@api_login_required
 def pipeline_counts():
-    vsc_name = request.args.get('vsc_name')
-    counts   = get_pipeline_counts(vsc_name=vsc_name)
+    if session.get('role') == 'admin':
+        vsc_name = request.args.get('vsc_name')
+    else:
+        vsc_name = session['vsc_name']
+    counts = get_pipeline_counts(vsc_name=vsc_name)
     return jsonify(counts)
 
 
 @app.route('/api/candidates/<int:cid>/submissions', methods=['POST'])
+@api_login_required
 def submissions_create(cid):
     data         = request.json
     job_title    = data.get('job_title', '').strip()
@@ -1623,6 +1729,7 @@ def submissions_create(cid):
 
 
 @app.route('/api/submissions/<int:sub_id>', methods=['PUT'])
+@api_login_required
 def submissions_update(sub_id):
     data    = request.json
     outcome = data.get('outcome', '').strip()
@@ -1636,24 +1743,28 @@ def submissions_update(sub_id):
 #  Automated Mode 
 
 @app.route('/automated')
+@login_required
 def automated_dashboard():
     """Automated mode VSC dashboard"""
     return render_template('automated_dashboard.html')
 
 
 @app.route('/intake')
+@login_required
 def intake():
-    """Public candidate intake form"""
+    """Candidate intake form"""
     return render_template('intake.html')
 
 
 @app.route('/intake/confirm')
+@login_required
 def intake_confirm():
     """Thank you page after intake submission"""
     return render_template('intake_confirm.html')
 
 
 @app.route('/api/intake/jobs', methods=['POST'])
+@api_login_required
 def intake_jobs():
     """
     Find jobs near candidate location for intake form.
@@ -1716,6 +1827,7 @@ def intake_jobs():
 
 
 @app.route('/api/intake/submit', methods=['POST'])
+@api_login_required
 def intake_submit():
     """
     Process candidate intake form submission.
@@ -1729,7 +1841,7 @@ def intake_submit():
             """Get form value, strip whitespace."""
             return (request.form.get(key) or default).strip()
 
-        vsc_name     = fv('vsc_name', 'VSC')
+        vsc_name     = session['vsc_name']
         first_name   = fv('first_name')
         last_name    = fv('last_name')
         email        = fv('email')
@@ -1837,6 +1949,7 @@ def intake_submit():
 
 
 @app.route('/api/intake/submissions', methods=['GET'])
+@api_login_required
 def intake_submissions():
     """Return recent automated intake submissions for VSC dashboard"""
     try:
@@ -2146,6 +2259,7 @@ def powerautomate_webhook():
 #  Engagement API 
 
 @app.route('/api/candidates/<int:cid>/engagements', methods=['GET'])
+@api_login_required
 def engagements_list(cid):
     """Return all engagements for a candidate."""
     return jsonify({
@@ -2158,13 +2272,14 @@ def engagements_list(cid):
 
 
 @app.route('/api/candidates/<int:cid>/engagements', methods=['POST'])
+@api_login_required
 def engagements_create(cid):
     """Log a new engagement for a candidate."""
     data = request.json or {}
     eng_type = (data.get('type') or '').upper()
     subtype  = (data.get('subtype') or '').upper() or None
     notes    = data.get('notes', '')
-    vsc_name = data.get('vsc_name', 'VSC')
+    vsc_name = session['vsc_name']
 
     if eng_type not in ENGAGEMENT_TYPES:
         return jsonify({'error': f'Invalid type. Must be one of: {ENGAGEMENT_TYPES}'}), 400
@@ -2253,6 +2368,7 @@ Work for Warriors Resume AI  Automated Notification"""
 
 
 @app.route('/api/ghost_check', methods=['POST'])
+@api_login_required
 def ghost_check_manual():
     """Manually trigger ghost detection (for testing or Power Automate scheduled call)."""
     threading.Thread(target=run_ghost_check, daemon=True).start()
@@ -2429,6 +2545,7 @@ def run_inbox_poll():
 
 
 @app.route('/api/inbox/poll', methods=['POST'])
+@api_login_required
 def inbox_poll_manual():
     """Manually trigger an inbox poll (for testing)."""
     threading.Thread(target=run_inbox_poll, daemon=True).start()
