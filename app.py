@@ -2116,6 +2116,7 @@ def powerautomate_webhook():
         vsc_name        = (data.get('vsc_name') or 'VSC').strip()
         vsc_email       = (data.get('vsc_email') or OUTLOOK_USER).strip()
         candidate_name  = (data.get('candidate_name') or 'Unknown Candidate').strip()
+        candidate_name  = re.sub(r'\s+via\s+.+$', '', candidate_name, flags=re.IGNORECASE).strip()
         candidate_email = (data.get('candidate_email') or '').strip()
         candidate_phone = (data.get('candidate_phone') or '').strip()
 
