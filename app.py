@@ -1056,6 +1056,25 @@ def parse_vsc_analysis(raw, credits=None):
     city          = loc_parts[0].strip() if loc_parts else 'Unknown'
     state         = loc_parts[1].strip() if len(loc_parts) > 1 else ''
 
+    # Post-process: strip from missing/verification anything Track 1 already confirmed.
+    # Extracts significant words from CONFIRMED lines in requirements, then removes
+    # any missing/verification line that shares 2+ of those words.
+    if requirements and missing_req:
+        confirmed_kw = set()
+        for line in requirements.splitlines():
+            if 'CONFIRMED' in line.upper():
+                req_part = re.split(r'[—–]', line)[0].strip().lower()
+                confirmed_kw.update(w for w in re.findall(r'[a-z]{4,}', req_part))
+        if confirmed_kw:
+            def _about_confirmed(line):
+                ll = line.lower()
+                return sum(1 for kw in confirmed_kw if kw in ll) >= 2
+            missing_lines = [l for l in missing_req.splitlines() if not _about_confirmed(l)]
+            missing_req = '\n'.join(missing_lines).strip() or 'None — all listed requirements confirmed or under review.'
+            if verification:
+                verif_lines = [l for l in verification.splitlines() if not _about_confirmed(l)]
+                verification = '\n'.join(verif_lines).strip()
+
     parsed = {
         'eligibility':           eligibility,
         'requirements':          requirements,
@@ -2322,6 +2341,7 @@ def powerautomate_webhook():
                 report = render_email('vsc_analysis_report', {
                     'candidate_name':        candidate_name,
                     'candidate_email':       candidate_email or '(email not provided)',
+                    'vsc_name':              vsc_name,
                     'job_title':             job_title,
                     'company_name':          target_job.get('Company Name', 'Not specified'),
                     'eligibility':           parsed.get('eligibility', ''),
