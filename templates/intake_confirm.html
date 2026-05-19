@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thank You – Work for Warriors</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px 16px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 52px 48px;
+            max-width: 640px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 16px 60px rgba(0,0,0,0.2);
+        }
+
+        /* ── Checkmark ── */
+        .check-circle {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 88px;
+            height: 88px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4CAF50, #2e7d32);
+            margin-bottom: 28px;
+            box-shadow: 0 6px 20px rgba(76,175,80,0.35);
+        }
+        .check-mark {
+            color: white;
+            font-size: 2.8em;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        /* ── Heading ── */
+        h1 {
+            color: #222;
+            font-size: 1.75em;
+            font-weight: 700;
+            margin-bottom: 14px;
+        }
+        .tagline {
+            color: #555;
+            font-size: 1em;
+            line-height: 1.7;
+            margin-bottom: 36px;
+            max-width: 480px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .tagline a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .tagline a:hover { text-decoration: underline; }
+
+        /* ── Divider ── */
+        .divider {
+            border: none;
+            border-top: 2px solid #f0f0f0;
+            margin: 32px 0;
+        }
+
+        /* ── Steps ── */
+        .steps-title {
+            font-size: 0.85em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: #999;
+            margin-bottom: 20px;
+        }
+        .steps {
+            display: flex;
+            gap: 0;
+            justify-content: center;
+            text-align: left;
+            flex-wrap: wrap;
+        }
+        .step {
+            flex: 1;
+            min-width: 150px;
+            padding: 0 16px;
+            border-right: 1px solid #eee;
+            position: relative;
+        }
+        .step:last-child { border-right: none; }
+        .step-icon {
+            font-size: 1.6em;
+            margin-bottom: 8px;
+            display: block;
+        }
+        .step-num {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 22px;
+            font-size: 0.75em;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        .step-title {
+            font-size: 0.88em;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .step-desc {
+            font-size: 0.8em;
+            color: #777;
+            line-height: 1.5;
+        }
+
+        /* ── Footer note ── */
+        .footer-note {
+            margin-top: 36px;
+            padding: 16px 20px;
+            background: #f8f8ff;
+            border-radius: 8px;
+            font-size: 0.82em;
+            color: #888;
+            line-height: 1.6;
+        }
+        .footer-note strong { color: #667eea; }
+
+        /* ── Responsive ── */
+        @media (max-width: 520px) {
+            .card { padding: 36px 24px; }
+            h1 { font-size: 1.45em; }
+            .step { border-right: none; border-bottom: 1px solid #eee; padding: 12px 0; min-width: 100%; }
+            .step:last-child { border-bottom: none; }
+        }
+    </style>
+</head>
+<body>
+<div class="card">
+
+    <div class="check-circle">
+        <span class="check-mark">&#10003;</span>
+    </div>
+
+    <h1>Your Information Has Been Received</h1>
+    <p class="tagline">
+        Your Veteran Services Coordinator has been notified and will be in touch with you shortly.
+        In the meantime, you can explore additional opportunities at the
+        <a href="https://www.workforwarriors.org" target="_blank" rel="noopener">Work for Warriors Smart Jobs Board</a>.
+    </p>
+
+    <hr class="divider">
+
+    <div class="steps-title">What happens next</div>
+    <div class="steps">
+
+        <div class="step">
+            <span class="step-num">1</span>
+            <div class="step-title">VSC Reviews Your Profile</div>
+            <p class="step-desc">Your coordinator reviews your background, resume, and target job match.</p>
+        </div>
+
+        <div class="step">
+            <span class="step-num">2</span>
+            <div class="step-title">You'll Receive an Email</div>
+            <p class="step-desc">Watch your inbox for an introduction from your assigned VSC shortly.</p>
+        </div>
+
+        <div class="step">
+            <span class="step-num">3</span>
+            <div class="step-title">Schedule Your Meeting</div>
+            <p class="step-desc">Your VSC will set up a one-on-one session to plan your next steps.</p>
+        </div>
+
+    </div>
+
+    <div class="footer-note">
+        <strong>Work for Warriors</strong> is a California National Guard Family Programs initiative
+        dedicated to helping veterans and their families find meaningful employment.
+        Your information is kept confidential and shared only with your assigned coordinator.
+    </div>
+
+</div>
+</body>
+</html>

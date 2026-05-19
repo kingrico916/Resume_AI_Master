@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automated Mode – Work for Warriors</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            padding: 28px 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        /* ── Nav ── */
+        nav {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 22px;
+            padding-bottom: 18px;
+            border-bottom: 3px solid #667eea;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        nav a {
+            padding: 7px 16px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-size: 0.88em;
+            font-weight: 600;
+            color: #667eea;
+            border: 2px solid #667eea;
+            transition: all 0.2s;
+        }
+        nav a:hover { background: #667eea; color: white; }
+        nav a.active { background: #667eea; color: white; }
+        nav .nav-switch {
+            margin-left: auto;
+            padding: 7px 16px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-size: 0.82em;
+            font-weight: 600;
+            color: #764ba2;
+            border: 2px solid #764ba2;
+            transition: all 0.2s;
+        }
+        nav .nav-switch:hover { background: #764ba2; color: white; }
+
+        /* ── Page header ── */
+        .page-header {
+            margin-bottom: 28px;
+        }
+        .page-header h1 { color: #333; font-size: 1.8em; font-weight: 700; }
+        .page-header p  { color: #666; font-size: 0.9em; margin-top: 4px; }
+
+        /* ── Section title ── */
+        .section-title {
+            font-size: 1em;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 14px;
+            padding-left: 12px;
+            border-left: 4px solid #667eea;
+        }
+
+        /* ── Intake link box ── */
+        .link-box {
+            background: #f8f8ff;
+            border: 2px solid #667eea;
+            border-radius: 10px;
+            padding: 24px;
+            margin-bottom: 28px;
+        }
+        .link-config {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .link-config label {
+            font-size: 0.85em;
+            font-weight: 600;
+            color: #555;
+            white-space: nowrap;
+        }
+        .link-config input {
+            flex: 1;
+            min-width: 180px;
+            padding: 9px 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.93em;
+            font-family: inherit;
+        }
+        .link-config input:focus { outline: none; border-color: #667eea; }
+        .link-display {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .link-url {
+            flex: 1;
+            min-width: 200px;
+            padding: 10px 14px;
+            background: white;
+            border: 2px solid #c5c5e5;
+            border-radius: 6px;
+            font-size: 0.88em;
+            color: #555;
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+        }
+        .btn {
+            padding: 9px 20px;
+            border: none;
+            border-radius: 7px;
+            font-size: 0.88em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.15s;
+            white-space: nowrap;
+        }
+        .btn:hover { opacity: 0.88; transform: translateY(-1px); }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-success { background: #4CAF50; color: white; }
+        .btn-sm { padding: 7px 14px; font-size: 0.82em; }
+        .link-instructions {
+            margin-top: 14px;
+            font-size: 0.83em;
+            color: #777;
+            line-height: 1.6;
+        }
+        .link-instructions strong { color: #555; }
+
+        /* ── Stats row ── */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            margin-bottom: 28px;
+        }
+        .stat-card {
+            background: #f8f8ff;
+            border: 2px solid #e8e8f8;
+            border-radius: 8px;
+            padding: 18px 16px;
+            text-align: center;
+        }
+        .stat-num {
+            font-size: 2em;
+            font-weight: 700;
+            color: #667eea;
+        }
+        .stat-label {
+            font-size: 0.78em;
+            font-weight: 600;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 4px;
+        }
+
+        /* ── Submissions table ── */
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88em;
+        }
+        thead {
+            background: #667eea;
+            color: white;
+        }
+        thead th {
+            padding: 11px 14px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.82em;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+        tbody tr {
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.1s;
+        }
+        tbody tr:last-child { border-bottom: none; }
+        tbody tr:hover { background: #f8f8ff; }
+        td {
+            padding: 11px 14px;
+            vertical-align: middle;
+            color: #444;
+        }
+        .td-name { font-weight: 700; color: #333; }
+        .td-contact { font-size: 0.85em; color: #666; }
+        .td-job { font-size: 0.85em; }
+
+        /* ── Grade badge ── */
+        .grade-badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 0.85em;
+        }
+        .grade-A  { background: #e8f5e9; color: #2e7d32; }
+        .grade-B  { background: #e3f2fd; color: #1565c0; }
+        .grade-C  { background: #fff3e0; color: #e65100; }
+        .grade-D  { background: #fce4ec; color: #c62828; }
+        .grade-F  { background: #fce4ec; color: #c62828; }
+        .grade-NA { background: #f5f5f5; color: #9e9e9e; }
+
+        /* ── Status badge ── */
+        .stage-badge {
+            display: inline-block;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.78em;
+            font-weight: 700;
+            background: #f0f0f0;
+            color: #666;
+        }
+        .stage-NEW       { background: #ede7f6; color: #6200ea; }
+        .stage-CONTACTED { background: #e3f2fd; color: #1565c0; }
+        .stage-HIRED     { background: #e8f5e9; color: #2e7d32; }
+
+        /* ── Action link ── */
+        .action-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.85em;
+        }
+        .action-link:hover { text-decoration: underline; }
+
+        /* ── Loading / empty states ── */
+        .table-status {
+            text-align: center;
+            padding: 32px;
+            color: #aaa;
+            font-size: 0.9em;
+        }
+
+        /* ── Copy feedback ── */
+        #copy-feedback {
+            display: none;
+            font-size: 0.82em;
+            color: #4CAF50;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 700px) {
+            .stats-row { grid-template-columns: 1fr 1fr; }
+            .link-config { flex-direction: column; }
+        }
+        @media (max-width: 480px) {
+            .container { padding: 18px 14px; }
+            .stats-row { grid-template-columns: 1fr 1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- ── Nav ── -->
+    <nav>
+        <a href="/automated" class="active">Automated Mode</a>
+        <a href="/crm">CRM</a>
+        <a href="/email-manager">Email Manager</a>
+        <a href="/?choose=1" class="nav-switch">Switch Mode</a>
+    </nav>
+
+    <!-- ── Header ── -->
+    <div class="page-header">
+        <h1>Automated Intake Dashboard</h1>
+        <p>Share your intake link with candidates. The system handles intake, analysis, and notification automatically.</p>
+    </div>
+
+    <!-- ── Intake Link ── -->
+    <div class="section-title">Your Intake Link</div>
+    <div class="link-box">
+        <div class="link-config">
+            <label>Your Name:</label>
+            <input type="text" id="vsc-name-input" placeholder="Enter your name to generate your link..."
+                   oninput="updateIntakeLink()" />
+        </div>
+        <div class="link-display">
+            <div class="link-url" id="intake-link-display">
+                Enter your name above to generate your intake link.
+            </div>
+            <button class="btn btn-primary" onclick="copyLink()">Copy Link</button>
+            <span id="copy-feedback">Copied!</span>
+        </div>
+        <div class="link-instructions">
+            <strong>How to use:</strong> Enter your name above, copy the link, and share it directly with candidates via email, text, or your intake process.
+            Candidates fill out their own form. When they submit, the system runs an AI analysis, creates their CRM record, sends them an initial contact email,
+            and sends you a notification with the full package. You just review the results.
+        </div>
+    </div>
+
+    <!-- ── Stats ── -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-num" id="stat-total">—</div>
+            <div class="stat-label">Total Submissions</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-num" id="stat-analyzed">—</div>
+            <div class="stat-label">Analyzed</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-num" id="stat-contacted">—</div>
+            <div class="stat-label">Contacted</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-num" id="stat-hired">—</div>
+            <div class="stat-label">Hired</div>
+        </div>
+    </div>
+
+    <!-- ── Recent Submissions ── -->
+    <div class="section-title">Recent Submissions</div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Submitted</th>
+                    <th>Candidate</th>
+                    <th>Contact</th>
+                    <th>Target Job</th>
+                    <th>Grade</th>
+                    <th>Stage</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="submissions-tbody">
+                <tr>
+                    <td colspan="7" class="table-status">Loading submissions...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+</div><!-- /container -->
+
+<script>
+// ── Intake link ────────────────────────────────────────────────────────────
+function updateIntakeLink() {
+    const name = document.getElementById('vsc-name-input').value.trim();
+    const display = document.getElementById('intake-link-display');
+    if (!name) {
+        display.textContent = 'Enter your name above to generate your intake link.';
+        display.style.color = '#bbb';
+        return;
+    }
+    const encoded = encodeURIComponent(name);
+    const url = window.location.origin + '/intake?vsc=' + encoded;
+    display.textContent = url;
+    display.style.color = '#333';
+}
+
+function copyLink() {
+    const display = document.getElementById('intake-link-display');
+    const text = display.textContent;
+    if (!text || text.startsWith('Enter your name')) return;
+
+    navigator.clipboard.writeText(text).then(() => {
+        const fb = document.getElementById('copy-feedback');
+        fb.style.display = 'inline';
+        setTimeout(() => { fb.style.display = 'none'; }, 2000);
+    }).catch(() => {
+        // Fallback for older browsers
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        const fb = document.getElementById('copy-feedback');
+        fb.style.display = 'inline';
+        setTimeout(() => { fb.style.display = 'none'; }, 2000);
+    });
+}
+
+// ── Load submissions ───────────────────────────────────────────────────────
+async function loadSubmissions() {
+    try {
+        const resp = await fetch('/api/intake/submissions');
+        const data = await resp.json();
+
+        updateStats(data.submissions || []);
+        renderTable(data.submissions || []);
+
+    } catch(err) {
+        document.getElementById('submissions-tbody').innerHTML =
+            `<tr><td colspan="7" class="table-status">Failed to load submissions. <a href="#" onclick="loadSubmissions()">Retry</a></td></tr>`;
+    }
+}
+
+function updateStats(rows) {
+    document.getElementById('stat-total').textContent     = rows.length;
+    document.getElementById('stat-analyzed').textContent  = rows.filter(r => r.notes && r.notes.includes('AI Grade:')).length;
+    document.getElementById('stat-contacted').textContent = rows.filter(r => ['CONTACTED','MEETING_SCHEDULED','MEETING_COMPLETE','RESUME_ANALYZED','SUBMITTED','HIRED'].includes(r.stage)).length;
+    document.getElementById('stat-hired').textContent     = rows.filter(r => r.stage === 'HIRED').length;
+}
+
+function renderTable(rows) {
+    const tbody = document.getElementById('submissions-tbody');
+
+    if (rows.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="table-status">No automated submissions yet. Share your intake link with candidates to get started.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = rows.map(r => {
+        const submitted = formatDate(r.created_at);
+        const name      = escHtml((r.first_name || '') + ' ' + (r.last_name || '')).trim();
+
+        // Extract target job from notes
+        let targetJob = '—';
+        if (r.notes) {
+            const m = r.notes.match(/Target job:\s*(.+)/);
+            if (m) targetJob = escHtml(m[1].trim().substring(0, 60));
+        }
+
+        // Extract grade from notes
+        let grade = '—';
+        let gradeClass = 'grade-NA';
+        if (r.notes) {
+            const m = r.notes.match(/AI Grade:\s*([A-F][+-]?)/);
+            if (m) {
+                grade = m[1];
+                const letter = grade[0];
+                gradeClass = 'grade-' + letter;
+            }
+        }
+
+        const stageLabel = formatStage(r.stage || 'NEW');
+        const stageClass = 'stage-' + (r.stage || 'NEW');
+
+        return `
+            <tr>
+                <td style="white-space:nowrap;font-size:0.82em;color:#888">${submitted}</td>
+                <td>
+                    <div class="td-name">${name}</div>
+                    <div class="td-contact">${escHtml(r.city || '')}${r.state ? ', ' + escHtml(r.state) : ''}</div>
+                </td>
+                <td>
+                    <div class="td-contact">${escHtml(r.email || '—')}</div>
+                    <div class="td-contact">${escHtml(r.phone || '')}</div>
+                </td>
+                <td class="td-job">${targetJob}</td>
+                <td><span class="grade-badge ${gradeClass}">${grade}</span></td>
+                <td><span class="stage-badge ${stageClass}">${stageLabel}</span></td>
+                <td><a href="/crm" class="action-link">View in CRM</a></td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function formatDate(ts) {
+    if (!ts) return '—';
+    try {
+        const d = new Date(ts);
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+               + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    } catch(e) { return ts; }
+}
+
+function formatStage(stage) {
+    const labels = {
+        'NEW':               'New',
+        'CONTACTED':         'Contacted',
+        'MEETING_SCHEDULED': 'Meeting Scheduled',
+        'MEETING_COMPLETE':  'Meeting Complete',
+        'RESUME_ANALYZED':   'Resume Analyzed',
+        'SUBMITTED':         'Submitted',
+        'HIRED':             'Hired',
+        'REJECTED':          'Rejected',
+        'WITHDRAWN':         'Withdrawn',
+    };
+    return labels[stage] || stage;
+}
+
+function escHtml(s) {
+    return String(s || '')
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+loadSubmissions();
+</script>
+</body>
+</html>

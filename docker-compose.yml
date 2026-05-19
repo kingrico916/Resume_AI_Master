@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  resume-ai:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OUTLOOK_USER=${OUTLOOK_USER:-anthony.antonucci@workforwarriors.org}
+      - OUTLOOK_PASSWORD=${OUTLOOK_PASSWORD}
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped

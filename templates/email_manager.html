@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Manager – Work for Warriors</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        /* ── Nav ── */
+        nav {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #667eea;
+            flex-wrap: wrap;
+        }
+        nav a {
+            padding: 8px 18px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-size: 0.9em;
+            font-weight: 600;
+            color: #667eea;
+            border: 2px solid #667eea;
+            transition: all 0.2s;
+        }
+        nav a:hover { background: #667eea; color: white; }
+        nav a.active { background: #667eea; color: white; }
+        nav a.disabled {
+            color: #bbb;
+            border-color: #ddd;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        header { margin-bottom: 25px; }
+        header h1 { color: #333; font-size: 2em; margin-bottom: 6px; }
+        header p  { color: #666; font-size: 1em; }
+
+        /* ── Sections ── */
+        .section {
+            margin-bottom: 25px;
+            padding: 22px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .section h2 { color: #333; font-size: 1.2em; margin-bottom: 16px; }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            color: #555;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.95em;
+            margin-bottom: 14px;
+            transition: border-color 0.2s;
+            font-family: inherit;
+        }
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        textarea { resize: vertical; }
+        textarea.body-field { min-height: 320px; font-family: 'Segoe UI', sans-serif; line-height: 1.6; }
+        textarea.subject-field { min-height: 44px; }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+        .optional-fields {
+            padding: 14px;
+            background: #eef0ff;
+            border-radius: 6px;
+            margin-bottom: 14px;
+            border: 1px dashed #aab;
+        }
+        .optional-fields label { color: #445; }
+        .optional-fields p {
+            font-size: 0.82em;
+            color: #778;
+            margin-bottom: 10px;
+            font-style: italic;
+        }
+
+        /* ── Buttons ── */
+        .btn {
+            padding: 12px 26px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1em;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        .btn-primary   { background: #667eea; color: white; }
+        .btn-primary:hover   { background: #5568d3; }
+        .btn-secondary { background: #6c757d; color: white; margin-left: 10px; }
+        .btn-secondary:hover { background: #5a6268; }
+        .btn:disabled  { background: #ccc; cursor: not-allowed; }
+
+        /* ── Template card ── */
+        .template-card {
+            padding: 10px 14px;
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-bottom: 8px;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .template-card:hover   { border-color: #667eea; }
+        .template-card.selected { border-color: #667eea; background: #eef0ff; }
+        .template-card.custom-saved { border-color: #e65100; }
+        .template-card.custom-saved:hover { border-color: #bf360c; }
+        .template-card.custom-saved.selected { background: #fff3e0; border-color: #e65100; }
+        .template-card strong  { color: #333; font-size: 0.95em; display: block; }
+        .template-card .when   { color: #777; font-size: 0.82em; margin-top: 3px; }
+        .template-card .stage-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            background: #667eea;
+            color: white;
+            border-radius: 10px;
+            font-size: 0.75em;
+            margin-top: 4px;
+        }
+        .template-card .badge-custom {
+            display: inline-block;
+            padding: 2px 8px;
+            background: #e65100;
+            color: white;
+            border-radius: 10px;
+            font-size: 0.75em;
+            margin-top: 4px;
+        }
+        .template-card .delete-tmpl {
+            float: right;
+            background: none;
+            border: none;
+            color: #c62828;
+            cursor: pointer;
+            font-size: 0.85em;
+            font-weight: 700;
+            padding: 0 4px;
+        }
+        .template-card .delete-tmpl:hover { color: #b71c1c; }
+
+        /* ── Modal overlay ── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.open { display: flex; }
+        .modal-box {
+            background: white;
+            border-radius: 10px;
+            padding: 28px;
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .modal-box h2 {
+            color: #333;
+            font-size: 1.2em;
+            margin-bottom: 18px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #eee;
+        }
+
+        /* ── Toast ── */
+        .toast {
+            display: none;
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            padding: 14px 22px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.95em;
+            z-index: 999;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .toast.success { background: #4CAF50; color: white; display: block; }
+        .toast.error   { background: #f44336; color: white; display: block; }
+
+        /* ── Loading ── */
+        .loading { display: none; text-align: center; padding: 16px; color: #667eea; font-weight: 600; }
+
+        /* ── History table ── */
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88em;
+        }
+        .history-table th {
+            background: #667eea;
+            color: white;
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+        .history-table td {
+            padding: 9px 12px;
+            border-bottom: 1px solid #eee;
+            color: #444;
+            vertical-align: top;
+        }
+        .history-table tr:hover td { background: #f8f9fa; }
+        .badge-sent   { color: #2e7d32; font-weight: 700; }
+        .badge-failed { color: #c62828; font-weight: 700; }
+
+        .empty-state { text-align: center; color: #999; padding: 30px; font-style: italic; }
+
+        /* ── Responsive ── */
+        @media (max-width: 700px) {
+            .grid-2, .grid-3 { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- Nav -->
+    <nav>
+        <a href="/manual">Resume AI</a>
+        <a href="/email-manager" class="active">Email Manager</a>
+        <a href="/crm">CRM</a>
+        <a class="disabled">Dashboard (Coming Soon)</a>
+        <a href="/?choose=1" style="margin-left:auto; color:#764ba2; border-color:#764ba2;">⚡ Switch Mode</a>
+    </nav>
+
+    <header>
+        <h1>Email Manager</h1>
+        <p>Work for Warriors — VSC Communications</p>
+    </header>
+
+    <!-- VSC Identity -->
+    <div class="section">
+        <h2>Your Info</h2>
+        <div class="grid-2">
+            <div>
+                <label for="vscName">Your Name</label>
+                <input type="text" id="vscName" placeholder="e.g. Chuck Callahan">
+            </div>
+            <div>
+                <label for="vscEmail">Your Email (used as Reply-To)</label>
+                <input type="email" id="vscEmail" placeholder="chuck.callahan@workforwarriors.org">
+            </div>
+        </div>
+    </div>
+
+    <!-- Candidate -->
+    <div class="section">
+        <h2>Candidate</h2>
+        <div class="grid-2">
+            <div>
+                <label for="toName">Candidate Full Name</label>
+                <input type="text" id="toName" placeholder="John Doe">
+            </div>
+            <div>
+                <label for="toEmail">Candidate Email</label>
+                <input type="email" id="toEmail" placeholder="john.doe@example.com">
+            </div>
+        </div>
+    </div>
+
+    <!-- Template Selection -->
+    <div class="section">
+        <h2>Select Template</h2>
+        <div style="margin-bottom:12px;">
+            <button class="btn btn-secondary" style="padding:8px 16px; font-size:0.9em;"
+                    onclick="startCustomCompose()">+ Custom Email (blank)</button>
+        </div>
+        <div id="templateList">
+            <!-- Populated by JS -->
+        </div>
+    </div>
+
+    <!-- Optional Fields (shown based on template) -->
+    <div class="section" id="optionalSection" style="display:none;">
+        <h2>Additional Details</h2>
+        <div class="optional-fields">
+            <p>Fill in the fields relevant to this template. Leave blank to omit.</p>
+            <div class="grid-2">
+                <div id="fieldJobTitle" style="display:none;">
+                    <label for="jobTitle">Job Title</label>
+                    <input type="text" id="jobTitle" placeholder="Operations Manager">
+                </div>
+                <div id="fieldCompanyName" style="display:none;">
+                    <label for="companyName">Company Name</label>
+                    <input type="text" id="companyName" placeholder="CVS Health">
+                </div>
+            </div>
+            <div class="grid-3" id="interviewFields" style="display:none;">
+                <div>
+                    <label for="interviewDate">Interview Date</label>
+                    <input type="text" id="interviewDate" placeholder="Monday, April 14, 2026">
+                </div>
+                <div>
+                    <label for="interviewTime">Interview Time</label>
+                    <input type="text" id="interviewTime" placeholder="10:00 AM PST">
+                </div>
+                <div>
+                    <label for="interviewLocation">Location / Format</label>
+                    <input type="text" id="interviewLocation" placeholder="In-Person / Teams / Phone">
+                </div>
+            </div>
+        </div>
+        <button class="btn btn-secondary" onclick="previewEmail()">Preview Email</button>
+    </div>
+
+    <!-- Compose -->
+    <div class="section" id="composeSection" style="display:none;">
+        <h2 id="composeTitle">Compose</h2>
+        <p style="font-size:0.83em; color:#888; margin-bottom:12px;">
+            Edit subject or body below before sending — changes are yours to make.
+        </p>
+        <label for="emailSubject">Subject</label>
+        <textarea class="subject-field" id="emailSubject" rows="1"></textarea>
+
+        <label for="emailBody">Body</label>
+        <textarea class="body-field" id="emailBody"></textarea>
+
+        <div style="margin-top:6px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+            <button class="btn btn-primary" id="sendBtn" onclick="sendEmail()">Send Email</button>
+            <button class="btn btn-secondary" onclick="openSaveTemplateModal()"
+                    title="Save what's in this compose box as a reusable template">
+                Save as Template
+            </button>
+            <button class="btn btn-secondary" onclick="clearCompose()">Clear</button>
+        </div>
+
+        <div class="loading" id="sendingIndicator">Sending...</div>
+    </div>
+
+    <!-- History -->
+    <div class="section">
+        <h2>Email History</h2>
+        <button class="btn btn-secondary" style="margin-bottom:14px; padding:8px 16px; font-size:0.9em;"
+                onclick="loadHistory()">Refresh History</button>
+        <div id="historyContainer">
+            <p class="empty-state">Click Refresh History to load recent emails.</p>
+        </div>
+    </div>
+
+</div>
+
+<!-- Save Template Modal -->
+<div class="modal-overlay" id="saveTemplateModal">
+    <div class="modal-box">
+        <h2>Save as Template</h2>
+        <label>Template Name *</label>
+        <input type="text" id="tmpl_label" placeholder="e.g. Interview Follow-Up – Tech Roles"
+               style="margin-bottom:14px;">
+        <label>When to Use (optional)</label>
+        <input type="text" id="tmpl_when" placeholder="e.g. After a technical interview is scheduled"
+               style="margin-bottom:14px;">
+        <div style="display:flex; gap:10px; margin-top:4px;">
+            <button class="btn btn-primary" onclick="saveAsTemplate()">Save Template</button>
+            <button class="btn btn-secondary" onclick="closeSaveTemplateModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast notification -->
+<div class="toast" id="toast"></div>
+
+<script>
+    // ── Template metadata from server ──────────────────────────────────────────
+    let TEMPLATES = [];
+    let selectedTemplateKey = null;
+
+    async function loadTemplates() {
+        try {
+            const resp = await fetch('/api/templates');
+            const data = await resp.json();
+            TEMPLATES = data.templates;
+            renderTemplateCards();
+        } catch(e) {
+            showToast('Failed to load templates: ' + e.message, 'error');
+        }
+    }
+
+    function renderTemplateCards() {
+        const container = document.getElementById('templateList');
+        container.innerHTML = '';
+        TEMPLATES.forEach(tmpl => {
+            const card = document.createElement('div');
+            card.className = tmpl.custom ? 'template-card custom-saved' : 'template-card';
+            card.dataset.key = tmpl.key;
+
+            const badge = tmpl.custom
+                ? `<span class="badge-custom">Saved</span>`
+                : `<span class="stage-badge">${tmpl.stage}</span>`;
+
+            const deleteBtn = tmpl.custom
+                ? `<button class="delete-tmpl" onclick="event.stopPropagation(); deleteTemplate('${tmpl.key}')">✕</button>`
+                : '';
+
+            card.innerHTML = `
+                ${deleteBtn}
+                <strong>${tmpl.label}</strong>
+                <div class="when">${tmpl.when || ''}</div>
+                ${badge}
+            `;
+            card.onclick = () => selectTemplate(tmpl.key, card);
+            container.appendChild(card);
+        });
+    }
+
+    function selectTemplate(key, cardEl) {
+        document.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
+        cardEl.classList.add('selected');
+        selectedTemplateKey = key;
+
+        const tmpl = TEMPLATES.find(t => t.key === key);
+        const fields = tmpl ? (tmpl.fields || []) : [];
+        const hasOptional = fields.length > 0;
+
+        document.getElementById('optionalSection').style.display = hasOptional ? 'block' : 'none';
+        document.getElementById('fieldJobTitle').style.display =
+            fields.includes('job_title') ? 'block' : 'none';
+        document.getElementById('fieldCompanyName').style.display =
+            fields.includes('company_name') ? 'block' : 'none';
+        document.getElementById('interviewFields').style.display =
+            fields.includes('interview_date') ? 'grid' : 'none';
+
+        // Custom saved templates: pre-fill body/subject directly (no server preview needed)
+        if (tmpl && tmpl.custom) {
+            document.getElementById('emailSubject').value = tmpl.subject || '';
+            document.getElementById('emailBody').value    = tmpl.body    || '';
+            document.getElementById('composeTitle').textContent = tmpl.label;
+            document.getElementById('composeSection').style.display = 'block';
+            return;
+        }
+
+        document.getElementById('composeTitle').textContent = tmpl ? tmpl.label : 'Compose';
+
+        if (!hasOptional) {
+            previewEmail();
+        }
+        document.getElementById('composeSection').style.display = 'block';
+    }
+
+    function startCustomCompose() {
+        document.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
+        selectedTemplateKey = 'custom';
+        document.getElementById('optionalSection').style.display  = 'none';
+        document.getElementById('composeSection').style.display   = 'block';
+        document.getElementById('composeTitle').textContent       = 'Custom Email';
+        document.getElementById('emailSubject').value = '';
+        document.getElementById('emailBody').value    = '';
+        document.getElementById('emailSubject').focus();
+    }
+
+    async function deleteTemplate(key) {
+        if (!confirm('Delete this saved template?')) return;
+        try {
+            const resp = await fetch(`/api/templates/${key}`, { method: 'DELETE' });
+            const data = await resp.json();
+            if (data.success) {
+                showToast('Template deleted', 'success');
+                await loadTemplates();
+            } else {
+                showToast(data.error || 'Delete failed', 'error');
+            }
+        } catch(e) {
+            showToast('Error: ' + e.message, 'error');
+        }
+    }
+
+    function openSaveTemplateModal() {
+        const subject = document.getElementById('emailSubject').value.trim();
+        const body    = document.getElementById('emailBody').value.trim();
+        if (!subject || !body) {
+            showToast('Compose the email first, then save it as a template', 'error');
+            return;
+        }
+        document.getElementById('tmpl_label').value = '';
+        document.getElementById('tmpl_when').value  = '';
+        document.getElementById('saveTemplateModal').classList.add('open');
+        document.getElementById('tmpl_label').focus();
+    }
+
+    function closeSaveTemplateModal() {
+        document.getElementById('saveTemplateModal').classList.remove('open');
+    }
+
+    async function saveAsTemplate() {
+        const label   = document.getElementById('tmpl_label').value.trim();
+        const when    = document.getElementById('tmpl_when').value.trim();
+        const subject = document.getElementById('emailSubject').value.trim();
+        const body    = document.getElementById('emailBody').value.trim();
+
+        if (!label) { showToast('Give the template a name', 'error'); return; }
+
+        try {
+            const resp = await fetch('/api/templates', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ label, subject, body, when_to_send: when })
+            });
+            const data = await resp.json();
+            if (data.success) {
+                closeSaveTemplateModal();
+                showToast(`"${label}" saved as a template`, 'success');
+                await loadTemplates();
+            } else {
+                showToast(data.error || 'Save failed', 'error');
+            }
+        } catch(e) {
+            showToast('Error: ' + e.message, 'error');
+        }
+    }
+
+    // ── Preview ────────────────────────────────────────────────────────────────
+    async function previewEmail() {
+        if (!selectedTemplateKey) {
+            showToast('Select a template first', 'error');
+            return;
+        }
+
+        const variables = buildVariables();
+        try {
+            const resp = await fetch('/api/preview_email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ template_key: selectedTemplateKey, variables })
+            });
+            const data = await resp.json();
+            if (data.error) {
+                showToast(data.error, 'error');
+                return;
+            }
+            document.getElementById('emailSubject').value = data.subject;
+            document.getElementById('emailBody').value    = data.body;
+            document.getElementById('composeSection').style.display = 'block';
+        } catch(e) {
+            showToast('Preview failed: ' + e.message, 'error');
+        }
+    }
+
+    // ── Send ───────────────────────────────────────────────────────────────────
+    async function sendEmail() {
+        const vscName   = document.getElementById('vscName').value.trim();
+        const vscEmail  = document.getElementById('vscEmail').value.trim();
+        const toName    = document.getElementById('toName').value.trim();
+        const toEmail   = document.getElementById('toEmail').value.trim();
+        const subject   = document.getElementById('emailSubject').value.trim();
+        const body      = document.getElementById('emailBody').value.trim();
+
+        if (!vscName)  { showToast('Enter your name', 'error'); return; }
+        if (!toName)   { showToast('Enter candidate name', 'error'); return; }
+        if (!toEmail)  { showToast('Enter candidate email', 'error'); return; }
+        if (!subject)  { showToast('Subject is required', 'error'); return; }
+        if (!body)     { showToast('Body is required', 'error'); return; }
+
+        document.getElementById('sendBtn').disabled = true;
+        document.getElementById('sendingIndicator').style.display = 'block';
+
+        try {
+            const resp = await fetch('/api/send_email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    vsc_name:     vscName,
+                    vsc_email:    vscEmail,
+                    to_name:      toName,
+                    to_email:     toEmail,
+                    template_key: selectedTemplateKey,
+                    subject:      subject,
+                    body:         body
+                })
+            });
+            const data = await resp.json();
+            if (data.success) {
+                showToast(`Email sent to ${toName}`, 'success');
+                clearCompose();
+                loadHistory();
+            } else {
+                showToast('Send failed: ' + (data.error || 'Unknown error'), 'error');
+            }
+        } catch(e) {
+            showToast('Send failed: ' + e.message, 'error');
+        } finally {
+            document.getElementById('sendBtn').disabled = false;
+            document.getElementById('sendingIndicator').style.display = 'none';
+        }
+    }
+
+    // ── History ────────────────────────────────────────────────────────────────
+    async function loadHistory() {
+        try {
+            const resp = await fetch('/api/email_history');
+            const data = await resp.json();
+            renderHistory(data.history);
+        } catch(e) {
+            showToast('Failed to load history: ' + e.message, 'error');
+        }
+    }
+
+    function renderHistory(history) {
+        const container = document.getElementById('historyContainer');
+        if (!history || history.length === 0) {
+            container.innerHTML = '<p class="empty-state">No emails sent yet.</p>';
+            return;
+        }
+
+        let html = `
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>Date / Time</th>
+                        <th>VSC</th>
+                        <th>Candidate</th>
+                        <th>Template</th>
+                        <th>Subject</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        history.forEach(row => {
+            const statusClass = row.status === 'sent' ? 'badge-sent' : 'badge-failed';
+            const statusText  = row.status === 'sent' ? 'Sent' : 'Failed';
+            html += `
+                <tr>
+                    <td>${formatDate(row.sent_at)}</td>
+                    <td>${row.vsc_name}</td>
+                    <td>${row.to_name}<br><small style="color:#888">${row.to_email}</small></td>
+                    <td>${row.template_label}</td>
+                    <td>${row.subject}</td>
+                    <td class="${statusClass}">${statusText}</td>
+                </tr>
+            `;
+        });
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────────
+    function buildVariables() {
+        return {
+            candidate_name:     document.getElementById('toName').value.trim(),
+            vsc_name:           document.getElementById('vscName').value.trim(),
+            job_title:          document.getElementById('jobTitle').value.trim(),
+            company_name:       document.getElementById('companyName').value.trim(),
+            interview_date:     document.getElementById('interviewDate').value.trim(),
+            interview_time:     document.getElementById('interviewTime').value.trim(),
+            interview_location: document.getElementById('interviewLocation').value.trim(),
+        };
+    }
+
+    function clearCompose() {
+        document.getElementById('emailSubject').value = '';
+        document.getElementById('emailBody').value    = '';
+        document.getElementById('toName').value       = '';
+        document.getElementById('toEmail').value      = '';
+        document.getElementById('jobTitle').value     = '';
+        document.getElementById('companyName').value  = '';
+        document.getElementById('interviewDate').value     = '';
+        document.getElementById('interviewTime').value     = '';
+        document.getElementById('interviewLocation').value = '';
+        document.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
+        selectedTemplateKey = null;
+        document.getElementById('optionalSection').style.display  = 'none';
+        document.getElementById('composeSection').style.display   = 'none';
+        document.getElementById('composeTitle').textContent = 'Compose';
+    }
+
+    // Close save modal on overlay click
+    document.getElementById('saveTemplateModal').addEventListener('click', function(e) {
+        if (e.target === this) closeSaveTemplateModal();
+    });
+
+    function formatDate(isoStr) {
+        if (!isoStr) return '';
+        const d = new Date(isoStr.replace(' ', 'T'));
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+             + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function showToast(message, type = 'success') {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.className = 'toast ' + type;
+        setTimeout(() => { toast.className = 'toast'; }, 4000);
+    }
+
+    // ── Init ───────────────────────────────────────────────────────────────────
+    loadTemplates();
+    loadHistory();
+
+    // Pre-fill candidate from CRM link (?name=...&email=...&id=...)
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('name'))  document.getElementById('toName').value  = params.get('name');
+    if (params.get('email')) document.getElementById('toEmail').value = params.get('email');
+</script>
+</body>
+</html>

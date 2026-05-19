@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veteran Career Assistance – Work for Warriors</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 24px 16px 48px;
+        }
+
+        /* ── Header ── */
+        .page-header {
+            text-align: center;
+            color: white;
+            margin-bottom: 32px;
+        }
+        .page-header h1 {
+            font-size: 2em;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        .page-header .subtitle {
+            font-size: 1.1em;
+            opacity: 0.9;
+            margin-top: 6px;
+        }
+        .page-header .mission {
+            display: inline-block;
+            margin-top: 12px;
+            padding: 8px 22px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 20px;
+            font-size: 0.88em;
+            opacity: 0.9;
+            line-height: 1.5;
+            max-width: 560px;
+        }
+
+        /* ── Main container ── */
+        .form-container {
+            max-width: 780px;
+            margin: 0 auto;
+        }
+
+        /* ── Section cards ── */
+        .section-card {
+            background: white;
+            border-radius: 12px;
+            padding: 28px 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+        }
+        .section-title {
+            font-size: 1.1em;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 18px;
+            padding-left: 14px;
+            border-left: 4px solid #667eea;
+        }
+        .section-number {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            width: 22px;
+            height: 22px;
+            text-align: center;
+            line-height: 22px;
+            font-size: 0.8em;
+            font-weight: 700;
+            margin-right: 8px;
+        }
+
+        /* ── Form fields ── */
+        .field-row {
+            display: flex;
+            gap: 14px;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+        }
+        .field-group {
+            flex: 1;
+            min-width: 180px;
+        }
+        .field-group.full { flex: 100%; }
+        label {
+            display: block;
+            font-size: 0.82em;
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+        label .req { color: #e53e3e; margin-left: 2px; }
+        input[type="text"],
+        input[type="email"],
+        input[type="tel"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 7px;
+            font-size: 0.93em;
+            font-family: inherit;
+            color: #333;
+            transition: border-color 0.2s;
+            background: #fafafa;
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+        }
+        textarea { resize: vertical; min-height: 130px; }
+
+        /* ── Job search ── */
+        .search-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .search-row input {
+            flex: 1;
+            min-width: 140px;
+        }
+        .btn {
+            padding: 10px 22px;
+            border: none;
+            border-radius: 7px;
+            font-size: 0.92em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.15s;
+            white-space: nowrap;
+        }
+        .btn:hover { opacity: 0.88; transform: translateY(-1px); }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-success { background: #4CAF50; color: white; }
+        .btn-purple  { background: #764ba2; color: white; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        /* ── Job list ── */
+        #job-results {
+            max-height: 340px;
+            overflow-y: auto;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            display: none;
+        }
+        .job-card {
+            padding: 13px 16px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background 0.15s;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .job-card:last-child { border-bottom: none; }
+        .job-card:hover { background: #f5f3ff; }
+        .job-card.selected { background: #eef2ff; border-left: 3px solid #667eea; }
+        .job-card-check {
+            color: #4CAF50;
+            font-size: 1.2em;
+            font-weight: 700;
+            flex-shrink: 0;
+            margin-top: 2px;
+            display: none;
+        }
+        .job-card.selected .job-card-check { display: block; }
+        .job-card-info { flex: 1; }
+        .job-card-title {
+            font-weight: 700;
+            color: #333;
+            font-size: 0.95em;
+        }
+        .job-card-meta {
+            font-size: 0.82em;
+            color: #777;
+            margin-top: 3px;
+        }
+        .job-card-distance {
+            font-size: 0.78em;
+            background: #667eea;
+            color: white;
+            border-radius: 10px;
+            padding: 2px 8px;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        #job-search-status {
+            font-size: 0.85em;
+            color: #888;
+            margin-top: 8px;
+            min-height: 20px;
+        }
+        #selected-job-display {
+            display: none;
+            margin-top: 12px;
+            padding: 12px 16px;
+            background: #eef2ff;
+            border-radius: 8px;
+            border: 2px solid #667eea;
+        }
+        .selected-job-label {
+            font-size: 0.78em;
+            font-weight: 700;
+            color: #667eea;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .selected-job-name {
+            font-size: 1em;
+            font-weight: 700;
+            color: #333;
+            margin-top: 3px;
+        }
+        .selected-job-sub {
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        /* ── Resume tabs ── */
+        .tab-bar {
+            display: flex;
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 16px;
+        }
+        .tab-btn {
+            padding: 9px 20px;
+            border: none;
+            background: none;
+            font-size: 0.9em;
+            font-weight: 600;
+            color: #999;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.15s;
+        }
+        .tab-btn.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+        .file-upload-zone {
+            border: 2px dashed #c5c5c5;
+            border-radius: 8px;
+            padding: 28px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .file-upload-zone:hover,
+        .file-upload-zone.drag-over {
+            border-color: #667eea;
+            background: #f5f3ff;
+        }
+        .file-upload-zone input[type="file"] {
+            display: none;
+        }
+        .upload-icon { font-size: 2.2em; margin-bottom: 8px; color: #aaa; }
+        .upload-text { color: #666; font-size: 0.9em; line-height: 1.5; }
+        .upload-text strong { color: #667eea; }
+        #file-name-display {
+            margin-top: 10px;
+            font-size: 0.85em;
+            color: #4CAF50;
+            font-weight: 600;
+            display: none;
+        }
+
+        /* ── CalCareers section ── */
+        #calcareers-section { display: none; }
+        .calcareers-badge {
+            display: inline-block;
+            background: #764ba2;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: 700;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+        .entry-block {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            background: #fafafa;
+            position: relative;
+        }
+        .remove-entry {
+            position: absolute;
+            top: 10px;
+            right: 12px;
+            background: none;
+            border: none;
+            color: #e53e3e;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: 700;
+            line-height: 1;
+        }
+        .remove-entry:hover { color: #c53030; }
+        .add-entry-btn {
+            background: none;
+            border: 2px dashed #667eea;
+            color: #667eea;
+            border-radius: 7px;
+            padding: 8px 18px;
+            font-size: 0.88em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s;
+            margin-top: 4px;
+        }
+        .add-entry-btn:hover { background: #f5f3ff; }
+
+        /* ── Submit section ── */
+        .submit-section {
+            text-align: center;
+            margin-top: 8px;
+        }
+        .submit-btn {
+            padding: 16px 48px;
+            font-size: 1.1em;
+            font-weight: 700;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.15s;
+            box-shadow: 0 4px 16px rgba(102,126,234,0.4);
+        }
+        .submit-btn:hover { opacity: 0.9; transform: translateY(-2px); }
+        .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .privacy-note {
+            margin-top: 12px;
+            font-size: 0.8em;
+            color: rgba(255,255,255,0.75);
+        }
+
+        /* ── Spinner / status ── */
+        #submit-status {
+            margin-top: 16px;
+            font-size: 0.95em;
+            font-weight: 600;
+            min-height: 24px;
+        }
+        .status-processing { color: #764ba2; }
+        .status-error { color: #e53e3e; }
+        .spinner {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 3px solid rgba(102,126,234,0.3);
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Error highlight ── */
+        .field-error { border-color: #e53e3e !important; }
+        .field-error-msg {
+            font-size: 0.78em;
+            color: #e53e3e;
+            margin-top: 3px;
+            display: none;
+        }
+        .field-error-msg.visible { display: block; }
+
+        /* ── Responsive ── */
+        @media (max-width: 600px) {
+            .section-card { padding: 20px 16px; }
+            .field-group { min-width: 100%; }
+            .search-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<div class="page-header">
+    <h1>Work for Warriors</h1>
+    <div class="subtitle" id="page-subtitle">Veteran Career Assistance</div>
+    <div class="mission" id="page-mission">
+        We connect California veterans with civilian employers who value military experience.
+        Fill out the form below and your Veteran Services Coordinator will be in touch shortly.
+    </div>
+</div>
+
+<div class="form-container">
+
+    <!-- Hidden fields -->
+    <input type="hidden" id="selected-job-id" value="">
+    <input type="hidden" id="selected-job-board" value="">
+    <input type="hidden" id="selected-job-company" value="">
+
+    <!-- ── Mode Toggle ── -->
+    <div class="section-card" style="padding:20px 28px;">
+        <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+            <span style="font-weight:700; color:#333; font-size:0.95em;">Submitting as:</span>
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:600; color:#667eea; margin:0; text-transform:none; letter-spacing:0; font-size:0.95em;">
+                <input type="radio" name="intake-mode" value="candidate" checked
+                       onchange="setIntakeMode('candidate')" style="width:auto; margin:0;">
+                Veteran / Family Member
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:600; color:#764ba2; margin:0; text-transform:none; letter-spacing:0; font-size:0.95em;">
+                <input type="radio" name="intake-mode" value="vsc"
+                       onchange="setIntakeMode('vsc')" style="width:auto; margin:0;">
+                VSC — Submitting on Behalf of Candidate
+            </label>
+        </div>
+        <!-- VSC name field (shown in VSC mode) -->
+        <div id="vsc-mode-fields" style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid #eee;">
+            <div class="field-row">
+                <div class="field-group">
+                    <label>Your Name (VSC) <span class="req">*</span></label>
+                    <input type="text" id="vsc-name-input" placeholder="e.g. Chuck Callahan" />
+                </div>
+                <div class="field-group">
+                    <label>Reason for Manual Entry</label>
+                    <select id="vsc-reason">
+                        <option value="handoff">Candidate handoff from another VSC</option>
+                        <option value="walk_in">Walk-in / no SJB application</option>
+                        <option value="referral">External referral</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Section 1: Job Search ── -->
+    <div class="section-card">
+        <div class="section-title">
+            <span class="section-number">1</span>Find Jobs Near You
+        </div>
+        <div class="search-row">
+            <input type="text" id="search-city" placeholder="City (e.g. Sacramento)" />
+            <input type="text" id="search-state" placeholder="State (e.g. CA)" maxlength="2" style="max-width:80px" />
+            <button class="btn btn-primary" onclick="searchJobs()">Search Jobs</button>
+        </div>
+        <div id="job-search-status"></div>
+        <div id="job-results"></div>
+        <div id="selected-job-display">
+            <div class="selected-job-label">&#10003; Selected Position</div>
+            <div class="selected-job-name" id="sel-job-title"></div>
+            <div class="selected-job-sub" id="sel-job-sub"></div>
+        </div>
+    </div>
+
+    <!-- ── Section 2: Personal Information ── -->
+    <div class="section-card">
+        <div class="section-title">
+            <span class="section-number">2</span>Your Information
+        </div>
+        <div class="field-row">
+            <div class="field-group">
+                <label>First Name <span class="req">*</span></label>
+                <input type="text" id="first-name" placeholder="First name" />
+            </div>
+            <div class="field-group">
+                <label>Last Name <span class="req">*</span></label>
+                <input type="text" id="last-name" placeholder="Last name" />
+            </div>
+        </div>
+        <div class="field-row">
+            <div class="field-group">
+                <label>Email Address <span class="req">*</span></label>
+                <input type="email" id="cand-email" placeholder="your@email.com" />
+            </div>
+            <div class="field-group">
+                <label>Phone Number</label>
+                <input type="tel" id="cand-phone" placeholder="(555) 555-5555" />
+            </div>
+        </div>
+        <div class="field-row">
+            <div class="field-group">
+                <label>City <span class="req">*</span></label>
+                <input type="text" id="cand-city" placeholder="Your city" />
+            </div>
+            <div class="field-group">
+                <label>State <span class="req">*</span></label>
+                <input type="text" id="cand-state" placeholder="CA" maxlength="2" />
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Section 3: Military Background ── -->
+    <div class="section-card">
+        <div class="section-title">
+            <span class="section-number">3</span>Military Background
+        </div>
+        <div class="field-row">
+            <div class="field-group">
+                <label id="branch-label">Branch of Service</label>
+                <select id="branch" onchange="handleBranchChange()">
+                    <option value="">Select branch...</option>
+                    <option>Army</option>
+                    <option>Navy</option>
+                    <option>Marine Corps</option>
+                    <option>Air Force</option>
+                    <option>Space Force</option>
+                    <option>Coast Guard</option>
+                    <option>National Guard</option>
+                    <option>Reserves</option>
+                    <option value="Dependent">Dependent (Veteran Family Member)</option>
+                </select>
+            </div>
+            <!-- Relation to Veteran — shown only when Dependent selected -->
+            <div class="field-group" id="relation-group" style="display:none;">
+                <label>Relation to Veteran <span class="req">*</span></label>
+                <select id="relation-to-veteran">
+                    <option value="">Select relation...</option>
+                    <option value="Spouse">Spouse</option>
+                    <option value="Child">Child</option>
+                    <option value="Parent">Parent</option>
+                    <option value="Sibling">Sibling</option>
+                    <option value="Domestic Partner">Domestic Partner</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <!-- Rank — hidden when Dependent -->
+            <div class="field-group" id="rank-group">
+                <label>Highest Rank Achieved</label>
+                <select id="rank">
+                    <option value="">Select or type below...</option>
+                    <option value="N/A">N/A</option>
+                </select>
+                <input type="text" id="rank-text" placeholder="e.g. Staff Sergeant (E-6)"
+                       style="margin-top:6px;" />
+            </div>
+        </div>
+        <div class="field-row" id="mos-years-row">
+            <div class="field-group">
+                <label>MOS / Rate / AFSC</label>
+                <select id="mos-select" onchange="toggleMosText()">
+                    <option value="">Enter below...</option>
+                    <option value="N/A">N/A</option>
+                </select>
+                <input type="text" id="mos" placeholder="e.g. 11B, 0311, 3D0X2"
+                       style="margin-top:6px;" />
+            </div>
+            <div class="field-group">
+                <label>Years Served</label>
+                <select id="years-select" onchange="toggleYearsText()">
+                    <option value="">Enter below...</option>
+                    <option value="N/A">N/A</option>
+                </select>
+                <input type="text" id="years-served" placeholder="e.g. 6 years"
+                       style="margin-top:6px;" />
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Section 4: Resume ── -->
+    <div class="section-card">
+        <div class="section-title">
+            <span class="section-number">4</span>Your Resume
+        </div>
+        <div class="tab-bar">
+            <button class="tab-btn active" onclick="switchTab('upload', this)">Upload File</button>
+            <button class="tab-btn" onclick="switchTab('paste', this)">Paste Text</button>
+        </div>
+
+        <!-- Upload tab -->
+        <div class="tab-panel active" id="tab-upload">
+            <div class="file-upload-zone" id="upload-zone" onclick="document.getElementById('resume-file').click()"
+                 ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+                <input type="file" id="resume-file" accept=".pdf,.docx,.txt" onchange="handleFileSelect(event)" />
+                <div class="upload-icon">&#128196;</div>
+                <div class="upload-text">
+                    <strong>Click to browse</strong> or drag and drop your resume here<br>
+                    Supported formats: .pdf, .docx, .txt
+                </div>
+                <div id="file-name-display">&#10003; <span id="file-name-text"></span></div>
+            </div>
+        </div>
+
+        <!-- Paste tab -->
+        <div class="tab-panel" id="tab-paste">
+            <textarea id="resume-text-input" placeholder="Paste your resume text here...&#10;&#10;Include your work history, education, skills, and any certifications or licenses."></textarea>
+        </div>
+    </div>
+
+    <!-- ── Section 5: CalCareers (conditional) ── -->
+    <div class="section-card" id="calcareers-section">
+        <div class="section-title">
+            <span class="section-number">5</span>CalCareers Application
+            <span class="calcareers-badge">State of California</span>
+        </div>
+        <p style="font-size:0.88em;color:#666;margin-bottom:18px;">
+            The selected position is a California state government job. Complete this section
+            to generate your CalCareers application package automatically.
+        </p>
+
+        <!-- Education -->
+        <div style="margin-bottom:20px;">
+            <div style="font-weight:700;color:#444;font-size:0.9em;margin-bottom:10px;">Education</div>
+            <div id="education-entries"></div>
+            <button class="add-entry-btn" onclick="addEducationEntry()">+ Add Education</button>
+        </div>
+
+        <!-- Work Experience -->
+        <div style="margin-bottom:20px;">
+            <div style="font-weight:700;color:#444;font-size:0.9em;margin-bottom:10px;">Work Experience</div>
+            <div id="experience-entries"></div>
+            <button class="add-entry-btn" onclick="addExperienceEntry()">+ Add Work Experience</button>
+        </div>
+
+        <!-- Veterans Preference -->
+        <div class="field-row" style="margin-bottom:14px;">
+            <div class="field-group">
+                <label>
+                    <input type="checkbox" id="vp-claiming" onchange="toggleVPBasis()" style="width:auto;margin-right:6px;">
+                    Claiming Veterans Preference
+                </label>
+            </div>
+            <div class="field-group" id="vp-basis-group" style="display:none;">
+                <label>Preference Basis</label>
+                <select id="vp-basis">
+                    <option value="VETERAN">Veteran</option>
+                    <option value="DISABLED_VETERAN">Disabled Veteran</option>
+                    <option value="WIDOWER">Widower / Widow of Veteran</option>
+                    <option value="SPOUSE">Spouse of 100% Disabled Veteran</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Template Track -->
+        <div class="field-row">
+            <div class="field-group">
+                <label>Application Template Track</label>
+                <select id="template-track">
+                    <option value="ANALYST">Analyst (General / Administrative)</option>
+                    <option value="IT">Information Technology</option>
+                    <option value="OPS">Operations / Trades</option>
+                </select>
+            </div>
+            <div class="field-group">
+                <label>JC Number (auto-filled)</label>
+                <input type="text" id="jc-number" placeholder="Auto-populated from job data" readonly style="background:#f0f0f0;color:#888;" />
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Submit ── -->
+    <div class="section-card submit-section">
+        <button class="submit-btn" id="submit-btn" onclick="submitIntake()">
+            Submit to Work for Warriors
+        </button>
+        <div id="submit-status"></div>
+        <p class="privacy-note">
+            Your information is shared only with your assigned Veteran Services Coordinator.
+        </p>
+    </div>
+
+</div><!-- /form-container -->
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let selectedJob = null;
+let eduCount = 0;
+let expCount = 0;
+let intakeMode = 'candidate'; // 'candidate' | 'vsc'
+
+// ── Mode toggle ────────────────────────────────────────────────────────────
+function setIntakeMode(mode) {
+    intakeMode = mode;
+    const vscFields = document.getElementById('vsc-mode-fields');
+    const submitBtn = document.getElementById('submit-btn');
+    const subtitle  = document.getElementById('page-subtitle');
+    const mission   = document.getElementById('page-mission');
+
+    if (mode === 'vsc') {
+        vscFields.style.display = 'block';
+        submitBtn.textContent   = 'Submit to CRM';
+        subtitle.textContent    = 'VSC Manual Intake';
+        mission.textContent     = 'Complete this form to manually initiate the AI analysis and create a CRM record for a candidate outside the automated flow.';
+    } else {
+        vscFields.style.display = 'none';
+        submitBtn.textContent   = 'Submit to Work for Warriors';
+        subtitle.textContent    = 'Veteran Career Assistance';
+        mission.textContent     = 'We connect California veterans with civilian employers who value military experience. Fill out the form below and your Veteran Services Coordinator will be in touch shortly.';
+    }
+}
+
+// ── Branch change — Dependent logic ───────────────────────────────────────
+function handleBranchChange() {
+    const branch      = document.getElementById('branch').value;
+    const isDependent = branch === 'Dependent';
+
+    // Relation selector
+    document.getElementById('relation-group').style.display   = isDependent ? 'block' : 'none';
+    // Rank group — hide for dependents
+    document.getElementById('rank-group').style.display       = isDependent ? 'none'  : 'block';
+    // MOS / Years row — hide for dependents
+    document.getElementById('mos-years-row').style.display    = isDependent ? 'none'  : 'flex';
+    // Update branch label
+    document.getElementById('branch-label').textContent       =
+        isDependent ? "Family Member's Branch of Service" : 'Branch of Service';
+}
+
+// ── N/A selectors ─────────────────────────────────────────────────────────
+function toggleMosText() {
+    const sel = document.getElementById('mos-select').value;
+    document.getElementById('mos').disabled      = sel === 'N/A';
+    if (sel === 'N/A') document.getElementById('mos').value = '';
+}
+
+function toggleYearsText() {
+    const sel = document.getElementById('years-select').value;
+    document.getElementById('years-served').disabled = sel === 'N/A';
+    if (sel === 'N/A') document.getElementById('years-served').value = '';
+}
+
+// ── Get VSC name ──────────────────────────────────────────────────────────
+function getVscName() {
+    if (intakeMode === 'vsc') {
+        return document.getElementById('vsc-name-input').value.trim();
+    }
+    // In candidate mode, read from URL param (VSC shared their intake link)
+    return new URLSearchParams(window.location.search).get('vsc') || '';
+}
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+function switchTab(tab, btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + tab).classList.add('active');
+}
+
+// ── File upload ────────────────────────────────────────────────────────────
+function handleFileSelect(evt) {
+    const file = evt.target.files[0];
+    if (file) showFileName(file.name);
+}
+function handleDragOver(evt) {
+    evt.preventDefault();
+    document.getElementById('upload-zone').classList.add('drag-over');
+}
+function handleDragLeave(evt) {
+    document.getElementById('upload-zone').classList.remove('drag-over');
+}
+function handleDrop(evt) {
+    evt.preventDefault();
+    document.getElementById('upload-zone').classList.remove('drag-over');
+    const file = evt.dataTransfer.files[0];
+    if (file) {
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        document.getElementById('resume-file').files = dt.files;
+        showFileName(file.name);
+    }
+}
+function showFileName(name) {
+    const disp = document.getElementById('file-name-display');
+    document.getElementById('file-name-text').textContent = name;
+    disp.style.display = 'block';
+}
+
+// ── Job search ─────────────────────────────────────────────────────────────
+async function searchJobs() {
+    const city  = document.getElementById('search-city').value.trim();
+    const state = document.getElementById('search-state').value.trim();
+    const status = document.getElementById('job-search-status');
+    const results = document.getElementById('job-results');
+
+    if (!city || !state) {
+        status.textContent = 'Please enter both city and state.';
+        status.style.color = '#e53e3e';
+        return;
+    }
+
+    status.textContent = 'Searching...';
+    status.style.color = '#888';
+    results.style.display = 'none';
+
+    try {
+        const resp = await fetch('/api/intake/jobs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ city, state })
+        });
+        const data = await resp.json();
+
+        if (!resp.ok || data.error) {
+            status.textContent = data.error || 'Search failed. Please try again.';
+            status.style.color = '#e53e3e';
+            return;
+        }
+
+        if (!data.jobs || data.jobs.length === 0) {
+            status.textContent = 'No jobs found within 50 miles. Try a different location.';
+            status.style.color = '#888';
+            return;
+        }
+
+        status.textContent = `Found ${data.jobs.length} job${data.jobs.length !== 1 ? 's' : ''} near ${city}, ${state}`;
+        status.style.color = '#4CAF50';
+
+        results.innerHTML = data.jobs.map(job => `
+            <div class="job-card" id="job-card-${job.id}" onclick="selectJob(${JSON.stringify(job).replace(/"/g, '&quot;')})">
+                <span class="job-card-check">&#10003;</span>
+                <div class="job-card-info">
+                    <div class="job-card-title">${escHtml(job.title)}</div>
+                    <div class="job-card-meta">${escHtml(job.company || '')} &bull; ${escHtml(job.city || '')}, ${escHtml(job.state || '')}</div>
+                </div>
+                ${job.distance != null ? `<span class="job-card-distance">${job.distance} mi</span>` : ''}
+            </div>
+        `).join('');
+        results.style.display = 'block';
+
+    } catch(err) {
+        status.textContent = 'Network error. Please try again.';
+        status.style.color = '#e53e3e';
+    }
+}
+
+function escHtml(s) {
+    return String(s || '')
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function selectJob(job) {
+    selectedJob = job;
+
+    // Update card highlight
+    document.querySelectorAll('.job-card').forEach(c => c.classList.remove('selected'));
+    const card = document.getElementById('job-card-' + job.id);
+    if (card) card.classList.add('selected');
+
+    // Store in hidden fields
+    document.getElementById('selected-job-id').value    = job.id || '';
+    document.getElementById('selected-job-board').value   = job.board || '';
+    document.getElementById('selected-job-company').value = job.company || '';
+
+    // Show selected job display
+    document.getElementById('sel-job-title').textContent = job.title || '';
+    document.getElementById('sel-job-sub').textContent   =
+        (job.company ? job.company + ' \u2022 ' : '') + (job.city || '') + ', ' + (job.state || '');
+    document.getElementById('selected-job-display').style.display = 'block';
+
+    // Prefill candidate location if empty
+    const cityEl  = document.getElementById('cand-city');
+    const stateEl = document.getElementById('cand-state');
+    if (!cityEl.value && job.city)   cityEl.value  = job.city;
+    if (!stateEl.value && job.state) stateEl.value = job.state;
+
+    // CalCareers detection
+    checkCalCareers(job);
+}
+
+function checkCalCareers(job) {
+    const board   = (job.board || '').toLowerCase();
+    const company = (job.company || '').toLowerCase();
+    const title   = (job.title || '').toLowerCase();
+
+    const isCalCareers = board === 'calcareers'
+        || company.includes('california')
+        || title.includes('state of california')
+        || title.includes('dept of')
+        || title.includes('department of')
+        || title.includes('california dept');
+
+    const section = document.getElementById('calcareers-section');
+    section.style.display = isCalCareers ? 'block' : 'none';
+
+    if (isCalCareers) {
+        // Populate JC number if available
+        document.getElementById('jc-number').value = job.job_id || job.id || '';
+    }
+}
+
+// ── CalCareers dynamic fields ──────────────────────────────────────────────
+function addEducationEntry() {
+    const idx = ++eduCount;
+    const container = document.getElementById('education-entries');
+    const block = document.createElement('div');
+    block.className = 'entry-block';
+    block.id = 'edu-' + idx;
+    block.innerHTML = `
+        <button class="remove-entry" onclick="removeEntry('edu-${idx}')" title="Remove">&times;</button>
+        <div class="field-row">
+            <div class="field-group">
+                <label>School / Institution</label>
+                <input type="text" name="edu_institution_${idx}" placeholder="University, college, trade school..." />
+            </div>
+            <div class="field-group">
+                <label>Degree / Certificate</label>
+                <input type="text" name="edu_degree_${idx}" placeholder="B.S., A.A., Certificate..." />
+            </div>
+        </div>
+        <div class="field-row">
+            <div class="field-group">
+                <label>Major / Field of Study</label>
+                <input type="text" name="edu_major_${idx}" placeholder="e.g. Criminal Justice" />
+            </div>
+            <div class="field-group">
+                <label>Graduation Date</label>
+                <input type="text" name="edu_grad_${idx}" placeholder="e.g. May 2018" />
+            </div>
+        </div>
+    `;
+    container.appendChild(block);
+}
+
+function addExperienceEntry() {
+    const idx = ++expCount;
+    const container = document.getElementById('experience-entries');
+    const block = document.createElement('div');
+    block.className = 'entry-block';
+    block.id = 'exp-' + idx;
+    block.innerHTML = `
+        <button class="remove-entry" onclick="removeEntry('exp-${idx}')" title="Remove">&times;</button>
+        <div class="field-row">
+            <div class="field-group">
+                <label>Employer</label>
+                <input type="text" name="exp_employer_${idx}" placeholder="Company / Agency / Branch" />
+            </div>
+            <div class="field-group">
+                <label>Job Title</label>
+                <input type="text" name="exp_title_${idx}" placeholder="Your title or role" />
+            </div>
+        </div>
+        <div class="field-row">
+            <div class="field-group">
+                <label>Start Date</label>
+                <input type="text" name="exp_start_${idx}" placeholder="e.g. Jan 2016" />
+            </div>
+            <div class="field-group">
+                <label>End Date</label>
+                <input type="text" name="exp_end_${idx}" placeholder="e.g. Mar 2022 or Present" />
+            </div>
+        </div>
+        <div class="field-row">
+            <div class="field-group full">
+                <label>Duties & Responsibilities</label>
+                <textarea name="exp_duties_${idx}" style="min-height:80px" placeholder="Describe your key duties and accomplishments..."></textarea>
+            </div>
+        </div>
+    `;
+    container.appendChild(block);
+}
+
+function removeEntry(id) {
+    const el = document.getElementById(id);
+    if (el) el.remove();
+}
+
+function toggleVPBasis() {
+    const claiming = document.getElementById('vp-claiming').checked;
+    document.getElementById('vp-basis-group').style.display = claiming ? 'flex' : 'none';
+}
+
+// ── Build CalCareers data ──────────────────────────────────────────────────
+function collectEducation() {
+    const entries = [];
+    document.querySelectorAll('[id^="edu-"]').forEach(block => {
+        const idx = block.id.split('-')[1];
+        const inst = (block.querySelector(`[name="edu_institution_${idx}"]`) || {}).value || '';
+        if (!inst) return;
+        entries.push({
+            institution: inst,
+            degree:      (block.querySelector(`[name="edu_degree_${idx}"]`) || {}).value || '',
+            major:       (block.querySelector(`[name="edu_major_${idx}"]`) || {}).value || '',
+            graduation_date: (block.querySelector(`[name="edu_grad_${idx}"]`) || {}).value || ''
+        });
+    });
+    return entries;
+}
+
+function collectExperience() {
+    const entries = [];
+    document.querySelectorAll('[id^="exp-"]').forEach(block => {
+        const idx = block.id.split('-')[1];
+        const emp = (block.querySelector(`[name="exp_employer_${idx}"]`) || {}).value || '';
+        if (!emp) return;
+        entries.push({
+            employer:  emp,
+            job_title: (block.querySelector(`[name="exp_title_${idx}"]`) || {}).value || '',
+            start_date:(block.querySelector(`[name="exp_start_${idx}"]`) || {}).value || '',
+            end_date:  (block.querySelector(`[name="exp_end_${idx}"]`) || {}).value || null,
+            duties:    (block.querySelector(`[name="exp_duties_${idx}"]`) || {}).value || ''
+        });
+    });
+    return entries;
+}
+
+// ── Form validation ────────────────────────────────────────────────────────
+function validate() {
+    let ok = true;
+    const required = [
+        { id: 'first-name',  label: 'First name' },
+        { id: 'last-name',   label: 'Last name' },
+        { id: 'cand-email',  label: 'Email' },
+        { id: 'cand-city',   label: 'City' },
+        { id: 'cand-state',  label: 'State' },
+    ];
+    required.forEach(f => {
+        const el = document.getElementById(f.id);
+        if (!el.value.trim()) {
+            el.classList.add('field-error');
+            ok = false;
+        } else {
+            el.classList.remove('field-error');
+        }
+    });
+
+    // VSC mode: require VSC name
+    if (intakeMode === 'vsc') {
+        const vscEl = document.getElementById('vsc-name-input');
+        if (!vscEl.value.trim()) { vscEl.classList.add('field-error'); ok = false; }
+        else vscEl.classList.remove('field-error');
+    }
+
+    // Dependent: require relation to veteran
+    if (document.getElementById('branch').value === 'Dependent') {
+        const relEl = document.getElementById('relation-to-veteran');
+        if (!relEl.value) { relEl.classList.add('field-error'); ok = false; }
+        else relEl.classList.remove('field-error');
+    }
+
+    // Resume: either file or pasted text
+    const fileEl = document.getElementById('resume-file');
+    const pasteEl = document.getElementById('resume-text-input');
+    const hasFile = fileEl.files && fileEl.files.length > 0;
+    const hasPaste = pasteEl.value.trim().length > 0;
+    if (!hasFile && !hasPaste) {
+        document.getElementById('tab-upload').querySelector('.file-upload-zone').style.borderColor = '#e53e3e';
+        ok = false;
+    } else {
+        document.getElementById('tab-upload').querySelector('.file-upload-zone').style.borderColor = '';
+    }
+
+    return ok;
+}
+
+// ── Submit ─────────────────────────────────────────────────────────────────
+async function submitIntake() {
+    if (!validate()) {
+        document.getElementById('submit-status').innerHTML =
+            '<span style="color:#e53e3e">Please fill in all required fields and provide your resume.</span>';
+        return;
+    }
+
+    const btn = document.getElementById('submit-btn');
+    const statusEl = document.getElementById('submit-status');
+    btn.disabled = true;
+    statusEl.innerHTML = '<span class="spinner"></span><span class="status-processing">Submitting your information and running analysis — this may take up to 60 seconds...</span>';
+
+    try {
+        const fd = new FormData();
+
+        // VSC
+        fd.append('vsc_name',    getVscName());
+        fd.append('intake_mode', intakeMode);
+        fd.append('vsc_reason',  document.getElementById('vsc-reason')?.value || '');
+
+        // Personal info
+        fd.append('first_name', document.getElementById('first-name').value.trim());
+        fd.append('last_name',  document.getElementById('last-name').value.trim());
+        fd.append('email',      document.getElementById('cand-email').value.trim());
+        fd.append('phone',      document.getElementById('cand-phone').value.trim());
+        fd.append('city',       document.getElementById('cand-city').value.trim());
+        fd.append('state',      document.getElementById('cand-state').value.trim());
+
+        // Military — handle Dependent case
+        const branch      = document.getElementById('branch').value;
+        const isDependent = branch === 'Dependent';
+        fd.append('branch', branch);
+        fd.append('is_dependent', isDependent ? '1' : '0');
+        if (isDependent) {
+            fd.append('relation_to_veteran', document.getElementById('relation-to-veteran').value);
+            fd.append('rank',        'N/A');
+            fd.append('mos',         'N/A');
+            fd.append('years_served', 'N/A');
+        } else {
+            const rankSel  = document.getElementById('rank');
+            const mosSel   = document.getElementById('mos-select');
+            const yearsSel = document.getElementById('years-select');
+            fd.append('rank',
+                rankSel.value === 'N/A' ? 'N/A' : document.getElementById('rank-text').value.trim());
+            fd.append('mos',
+                mosSel.value === 'N/A' ? 'N/A' : document.getElementById('mos').value.trim());
+            fd.append('years_served',
+                yearsSel.value === 'N/A' ? 'N/A' : document.getElementById('years-served').value.trim());
+        }
+
+        // Job
+        fd.append('target_job_id', document.getElementById('selected-job-id').value);
+
+        // Resume — file takes priority if present
+        const fileEl = document.getElementById('resume-file');
+        if (fileEl.files && fileEl.files.length > 0) {
+            fd.append('resume', fileEl.files[0]);
+        } else {
+            fd.append('resume_text', document.getElementById('resume-text-input').value.trim());
+        }
+
+        // CalCareers section (if visible)
+        const calcSection = document.getElementById('calcareers-section');
+        if (calcSection.style.display !== 'none') {
+            fd.append('education',        JSON.stringify(collectEducation()));
+            fd.append('work_experience',  JSON.stringify(collectExperience()));
+            fd.append('template_track',   document.getElementById('template-track').value);
+            fd.append('jc_number',        document.getElementById('jc-number').value);
+            const vpClaiming = document.getElementById('vp-claiming').checked;
+            fd.append('veterans_preference', JSON.stringify({
+                claiming: vpClaiming,
+                basis: vpClaiming ? document.getElementById('vp-basis').value : ''
+            }));
+        }
+
+        const resp = await fetch('/api/intake/submit', {
+            method: 'POST',
+            body: fd
+        });
+
+        const data = await resp.json();
+
+        if (data.success) {
+            window.location.href = '/intake/confirm';
+        } else {
+            statusEl.innerHTML = `<span class="status-error">Submission error: ${escHtml(data.error || 'Unknown error. Please try again.')}</span>`;
+            btn.disabled = false;
+        }
+
+    } catch(err) {
+        statusEl.innerHTML = `<span class="status-error">Network error. Please check your connection and try again.</span>`;
+        btn.disabled = false;
+    }
+}
+</script>
+</body>
+</html>

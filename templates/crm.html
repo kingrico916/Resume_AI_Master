@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRM – Work for Warriors</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1300px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            padding: 28px 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        /* ── Nav ── */
+        nav {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 22px;
+            padding-bottom: 18px;
+            border-bottom: 3px solid #667eea;
+            flex-wrap: wrap;
+        }
+        nav a, nav span {
+            padding: 7px 16px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-size: 0.88em;
+            font-weight: 600;
+            color: #667eea;
+            border: 2px solid #667eea;
+            transition: all 0.2s;
+        }
+        nav a:hover { background: #667eea; color: white; }
+        nav a.active { background: #667eea; color: white; }
+        nav span { color: #bbb; border-color: #ddd; cursor: not-allowed; }
+
+        /* ── Header row ── */
+        .header-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .header-row h1 { color: #333; font-size: 1.8em; }
+        .header-row p  { color: #666; font-size: 0.9em; margin-top: 3px; }
+
+        /* ── Controls ── */
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .controls input {
+            padding: 9px 14px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.92em;
+            width: 220px;
+            transition: border-color 0.2s;
+        }
+        .controls input:focus { outline: none; border-color: #667eea; }
+        .controls select {
+            padding: 9px 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.92em;
+            background: white;
+        }
+
+        /* ── Pipeline pills ── */
+        .pipeline-pills {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        .pill {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.82em;
+            font-weight: 700;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .pill:hover   { opacity: 0.85; }
+        .pill.active  { border-color: #333 !important; }
+        .pill .count  { margin-left: 5px; opacity: 0.85; }
+        .pill-all     { background: #f0f0f0; color: #333; border-color: #ccc; }
+        .pill-all.active { background: #333; color: white; border-color: #333; }
+
+        /* ── Candidate grid ── */
+        .candidate-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 14px;
+        }
+
+        .candidate-card {
+            background: #f8f9fa;
+            border: 2px solid #eee;
+            border-radius: 8px;
+            padding: 16px;
+            cursor: pointer;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            position: relative;
+        }
+        .candidate-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 3px 12px rgba(102,126,234,0.15);
+        }
+
+        .card-name {
+            font-size: 1.05em;
+            font-weight: 700;
+            color: #222;
+            margin-bottom: 6px;
+        }
+        .card-meta {
+            font-size: 0.82em;
+            color: #666;
+            line-height: 1.7;
+        }
+        .stage-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 8px;
+        }
+        .card-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 12px;
+        }
+        .card-btn {
+            padding: 5px 12px;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.78em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .card-btn:hover { opacity: 0.8; }
+        .card-btn-view  { background: #667eea; color: white; }
+        .card-btn-email { background: #4CAF50; color: white; }
+
+        .empty-state {
+            grid-column: 1 / -1;
+            text-align: center;
+            color: #999;
+            padding: 50px 20px;
+            font-style: italic;
+            font-size: 1.05em;
+        }
+
+        /* ── Buttons ── */
+        .btn {
+            padding: 10px 22px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.95em;
+            cursor: pointer;
+            font-weight: 600;
+            transition: opacity 0.2s;
+        }
+        .btn:hover      { opacity: 0.85; }
+        .btn-primary    { background: #667eea; color: white; }
+        .btn-success    { background: #4CAF50; color: white; }
+        .btn-danger     { background: #f44336; color: white; }
+        .btn-secondary  { background: #6c757d; color: white; }
+        .btn-sm         { padding: 6px 14px; font-size: 0.85em; }
+
+        /* ── Modal ── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal-overlay.open { display: flex; }
+
+        .modal {
+            background: white;
+            border-radius: 10px;
+            padding: 28px;
+            width: 100%;
+            max-width: 560px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .modal h2 {
+            color: #333;
+            font-size: 1.3em;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #eee;
+        }
+
+        /* ── Detail panel ── */
+        #detailPanel {
+            display: none;
+        }
+        #detailPanel.open { display: block; }
+
+        .detail-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid #eee;
+            flex-wrap: wrap;
+        }
+        .detail-header-text { flex: 1; }
+        .detail-header-text h2 { color: #222; font-size: 1.6em; }
+        .detail-header-text .sub { color: #666; font-size: 0.9em; margin-top: 4px; }
+
+        /* ── Stage selector ── */
+        .stage-selector {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 22px;
+        }
+        .stage-btn {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.78em;
+            font-weight: 700;
+            cursor: pointer;
+            border: 2px solid transparent;
+            color: white;
+            transition: all 0.15s;
+            opacity: 0.45;
+        }
+        .stage-btn.current { opacity: 1; border-color: #333; }
+        .stage-btn:hover   { opacity: 0.85; }
+
+        /* ── Tabs ── */
+        .tabs {
+            display: flex;
+            gap: 0;
+            border-bottom: 2px solid #eee;
+            margin-bottom: 20px;
+        }
+        .tab-btn {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            font-size: 0.92em;
+            font-weight: 600;
+            color: #888;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            transition: color 0.2s;
+        }
+        .tab-btn:hover  { color: #667eea; }
+        .tab-btn.active { color: #667eea; border-bottom-color: #667eea; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* ── Form fields ── */
+        .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .field-group { margin-bottom: 14px; }
+        .field-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 600;
+            font-size: 0.88em;
+        }
+        .field-group input,
+        .field-group select,
+        .field-group textarea {
+            width: 100%;
+            padding: 9px 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.92em;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+        .field-group input:focus,
+        .field-group select:focus,
+        .field-group textarea:focus { outline: none; border-color: #667eea; }
+        .field-group textarea { min-height: 100px; resize: vertical; }
+
+        /* ── Tables ── */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.87em;
+        }
+        .data-table th {
+            background: #667eea;
+            color: white;
+            padding: 9px 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+        .data-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #eee;
+            color: #444;
+            vertical-align: top;
+        }
+        .data-table tr:hover td { background: #f8f9fa; }
+
+        .outcome-select {
+            padding: 4px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.85em;
+            background: white;
+        }
+
+        /* ── Misc ── */
+        .text-muted   { color: #888; font-size: 0.85em; }
+        .text-success { color: #2e7d32; font-weight: 700; }
+        .text-danger  { color: #c62828; font-weight: 700; }
+        .text-warning { color: #e65100; font-weight: 700; }
+
+        .section-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+        .section-row h3 { color: #333; font-size: 1em; }
+
+        .toast {
+            display: none;
+            position: fixed;
+            bottom: 28px;
+            right: 28px;
+            padding: 13px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.92em;
+            z-index: 999;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .toast.success { display: block; background: #4CAF50; color: white; }
+        .toast.error   { display: block; background: #f44336; color: white; }
+
+        @media (max-width: 700px) {
+            .form-grid-2 { grid-template-columns: 1fr; }
+            .candidate-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- Nav -->
+    <nav>
+        <a href="/manual">Resume AI</a>
+        <a href="/email-manager">Email Manager</a>
+        <a href="/crm" class="active">CRM</a>
+        <span>Dashboard (Coming Soon)</span>
+        <a href="/?choose=1" style="margin-left:auto; color:#764ba2; border-color:#764ba2;">⚡ Switch Mode</a>
+    </nav>
+
+    <!-- Header -->
+    <div class="header-row">
+        <div>
+            <h1>Candidate Pipeline</h1>
+            <p>Work for Warriors — Veteran Services Coordinators</p>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <input type="text" id="vscFilter" placeholder="Filter by your name..." style="width:200px;"
+                   oninput="applyFilters()">
+            <button class="btn btn-primary" onclick="openAddModal()">+ Add Candidate</button>
+        </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+        <input type="text" id="searchInput" placeholder="Search candidates..." oninput="applyFilters()">
+    </div>
+
+    <!-- Pipeline pills -->
+    <div class="pipeline-pills" id="pills">
+        <div class="pill pill-all active" data-stage="" onclick="filterByStage('', this)">
+            All <span class="count" id="count-ALL">0</span>
+        </div>
+        <!-- Stage pills injected by JS -->
+    </div>
+
+    <!-- List view -->
+    <div id="listView">
+        <div class="candidate-grid" id="candidateGrid">
+            <p class="empty-state">Loading candidates...</p>
+        </div>
+    </div>
+
+    <!-- Detail panel -->
+    <div id="detailPanel">
+        <button class="btn btn-secondary btn-sm" onclick="backToList()" style="margin-bottom:16px;">
+            &larr; Back to Pipeline
+        </button>
+
+        <div class="detail-header">
+            <div class="detail-header-text">
+                <h2 id="detailName">—</h2>
+                <div class="sub" id="detailSub">—</div>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button class="btn btn-success btn-sm" onclick="goToEmailManager()">Send Email</button>
+                <button class="btn btn-danger btn-sm" onclick="confirmDelete()">Delete</button>
+            </div>
+        </div>
+
+        <!-- Stage selector -->
+        <div class="stage-selector" id="stageSelector"></div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('profile', this)">Profile</button>
+            <button class="tab-btn" onclick="switchTab('engagements', this)">Engagements</button>
+            <button class="tab-btn" onclick="switchTab('notes', this)">Notes</button>
+            <button class="tab-btn" onclick="switchTab('emails', this)">Emails</button>
+            <button class="tab-btn" onclick="switchTab('submissions', this)">Submissions</button>
+        </div>
+
+        <!-- Profile tab -->
+        <div class="tab-content active" id="tab-profile">
+            <div class="form-grid-2">
+                <div class="field-group">
+                    <label>First Name</label>
+                    <input type="text" id="d_first_name">
+                </div>
+                <div class="field-group">
+                    <label>Last Name</label>
+                    <input type="text" id="d_last_name">
+                </div>
+                <div class="field-group">
+                    <label>Email</label>
+                    <input type="text" id="d_email">
+                </div>
+                <div class="field-group">
+                    <label>Phone</label>
+                    <input type="text" id="d_phone">
+                </div>
+                <div class="field-group">
+                    <label>City</label>
+                    <input type="text" id="d_city">
+                </div>
+                <div class="field-group">
+                    <label>State</label>
+                    <input type="text" id="d_state">
+                </div>
+                <div class="field-group">
+                    <label>Branch of Service</label>
+                    <select id="d_branch">
+                        <option value="">Select branch...</option>
+                        {% for b in military_branches %}
+                        <option value="{{ b }}">{{ b }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field-group">
+                    <label>Rank</label>
+                    <input type="text" id="d_rank" placeholder="e.g. Staff Sergeant (E-6)">
+                </div>
+                <div class="field-group">
+                    <label>MOS / Rate / AFSC</label>
+                    <input type="text" id="d_mos" placeholder="e.g. 11B, 0311, 3D0X2">
+                </div>
+                <div class="field-group">
+                    <label>Years Served</label>
+                    <input type="text" id="d_years_served" placeholder="e.g. 8 years">
+                </div>
+                <div class="field-group">
+                    <label>VSC Assigned</label>
+                    <input type="text" id="d_vsc_name">
+                </div>
+            </div>
+            <button class="btn btn-primary" onclick="saveProfile()">Save Profile</button>
+        </div>
+
+        <!-- Engagements tab -->
+        <div class="tab-content" id="tab-engagements">
+            <div class="section-row">
+                <h3>Log Engagement</h3>
+            </div>
+            <div style="background:#f8f9fa; border-radius:8px; padding:16px; margin-bottom:20px;">
+                <div class="form-grid-2" style="margin-bottom:12px;">
+                    <div class="field-group" style="margin-bottom:0;">
+                        <label>Type</label>
+                        <select id="eng_type" onchange="updateEngSubtypes()">
+                            <option value="">Select type...</option>
+                        </select>
+                    </div>
+                    <div class="field-group" style="margin-bottom:0;">
+                        <label>Method / Subtype</label>
+                        <select id="eng_subtype">
+                            <option value="">— select type first —</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="field-group" style="margin-bottom:12px;">
+                    <label>Notes (optional)</label>
+                    <textarea id="eng_notes" style="min-height:70px;"
+                              placeholder="Topics covered, outcomes, next steps..."></textarea>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="logEngagement()">Log Engagement</button>
+            </div>
+
+            <div class="section-row">
+                <h3>Engagement History</h3>
+            </div>
+            <div id="engagementsContainer">
+                <p class="text-muted">No engagements recorded yet.</p>
+            </div>
+        </div>
+
+        <!-- Notes tab -->
+        <div class="tab-content" id="tab-notes">
+            <div class="field-group">
+                <label>Notes (internal — not visible to candidate)</label>
+                <textarea id="d_notes" style="min-height:200px;"
+                          placeholder="Meeting notes, follow-up reminders, context..."></textarea>
+            </div>
+            <button class="btn btn-primary" onclick="saveNotes()">Save Notes</button>
+        </div>
+
+        <!-- Emails tab -->
+        <div class="tab-content" id="tab-emails">
+            <div class="section-row">
+                <h3>Email History</h3>
+                <button class="btn btn-success btn-sm" onclick="goToEmailManager()">Send New Email</button>
+            </div>
+            <div id="emailHistoryContainer">
+                <p class="text-muted">No emails on record for this candidate.</p>
+            </div>
+        </div>
+
+        <!-- Submissions tab -->
+        <div class="tab-content" id="tab-submissions">
+            <div class="section-row">
+                <h3>Employer Submissions</h3>
+                <button class="btn btn-primary btn-sm" onclick="openSubmissionModal()">+ Add Submission</button>
+            </div>
+            <div id="submissionsContainer">
+                <p class="text-muted">No submissions recorded yet.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Candidate Modal -->
+<div class="modal-overlay" id="addModal">
+    <div class="modal">
+        <h2>Add New Candidate</h2>
+        <div class="form-grid-2">
+            <div class="field-group">
+                <label>First Name *</label>
+                <input type="text" id="n_first_name" placeholder="John">
+            </div>
+            <div class="field-group">
+                <label>Last Name *</label>
+                <input type="text" id="n_last_name" placeholder="Doe">
+            </div>
+            <div class="field-group">
+                <label>Email</label>
+                <input type="text" id="n_email" placeholder="john.doe@email.com">
+            </div>
+            <div class="field-group">
+                <label>Phone</label>
+                <input type="text" id="n_phone" placeholder="916-555-0100">
+            </div>
+            <div class="field-group">
+                <label>City</label>
+                <input type="text" id="n_city" placeholder="Sacramento">
+            </div>
+            <div class="field-group">
+                <label>State</label>
+                <input type="text" id="n_state" placeholder="CA">
+            </div>
+            <div class="field-group">
+                <label>Branch of Service</label>
+                <select id="n_branch">
+                    <option value="">Select...</option>
+                    {% for b in military_branches %}
+                    <option value="{{ b }}">{{ b }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="field-group">
+                <label>Rank</label>
+                <input type="text" id="n_rank" placeholder="e.g. Sergeant (E-5)">
+            </div>
+            <div class="field-group">
+                <label>MOS / Rate / AFSC</label>
+                <input type="text" id="n_mos" placeholder="e.g. 11B">
+            </div>
+            <div class="field-group">
+                <label>Years Served</label>
+                <input type="text" id="n_years_served" placeholder="e.g. 6 years">
+            </div>
+        </div>
+        <div class="field-group">
+            <label>Your Name (VSC) *</label>
+            <input type="text" id="n_vsc_name" placeholder="Your full name">
+        </div>
+        <div style="display:flex; gap:10px; margin-top:6px;">
+            <button class="btn btn-primary" onclick="saveNewCandidate()">Add Candidate</button>
+            <button class="btn btn-secondary" onclick="closeAddModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add Submission Modal -->
+<div class="modal-overlay" id="submissionModal">
+    <div class="modal">
+        <h2>Add Employer Submission</h2>
+        <div class="field-group">
+            <label>Job Title *</label>
+            <input type="text" id="sub_job_title" placeholder="Operations Manager">
+        </div>
+        <div class="field-group">
+            <label>Company Name *</label>
+            <input type="text" id="sub_company_name" placeholder="CVS Health">
+        </div>
+        <div class="field-group">
+            <label>Notes</label>
+            <textarea id="sub_notes" style="min-height:80px;"
+                      placeholder="Submission context, recruiter name, etc."></textarea>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:6px;">
+            <button class="btn btn-primary" onclick="saveSubmission()">Submit</button>
+            <button class="btn btn-secondary" onclick="closeSubmissionModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Constants from Flask ────────────────────────────────────────────────────
+const STAGES = {{ pipeline_stages | tojson }};
+const STAGE_LABELS = {{ stage_labels | tojson }};
+const STAGE_COLORS = {{ stage_colors | tojson }};
+const ENG_TYPES = {{ engagement_types | tojson }};
+const ENG_SUBTYPES = {{ engagement_subtypes | tojson }};
+const ENG_TYPE_LABELS = {{ engagement_type_labels | tojson }};
+const ENG_SUBTYPE_LABELS = {{ engagement_subtype_labels | tojson }};
+
+// ── State ──────────────────────────────────────────────────────────────────
+let allCandidates = [];
+let currentStageFilter = '';
+let currentCandidate = null;
+
+// ── Init ───────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+    buildPills();
+    loadCandidates();
+    initEngTypeDropdown();
+});
+
+function initEngTypeDropdown() {
+    const sel = document.getElementById('eng_type');
+    ENG_TYPES.forEach(k => {
+        const opt = document.createElement('option');
+        opt.value = k;
+        opt.textContent = ENG_TYPE_LABELS[k] || k;
+        sel.appendChild(opt);
+    });
+}
+
+// ── Pills ──────────────────────────────────────────────────────────────────
+function buildPills() {
+    const container = document.getElementById('pills');
+    STAGES.forEach(stage => {
+        const pill = document.createElement('div');
+        pill.className = 'pill';
+        pill.dataset.stage = stage;
+        pill.style.background = STAGE_COLORS[stage];
+        pill.style.color = 'white';
+        pill.innerHTML = `${STAGE_LABELS[stage]} <span class="count" id="count-${stage}">0</span>`;
+        pill.onclick = () => filterByStage(stage, pill);
+        container.appendChild(pill);
+    });
+}
+
+function filterByStage(stage, el) {
+    currentStageFilter = stage;
+    document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+    renderCandidates();
+}
+
+// ── Load ───────────────────────────────────────────────────────────────────
+async function loadCandidates() {
+    try {
+        const resp = await fetch('/api/candidates');
+        const data = await resp.json();
+        allCandidates = data.candidates;
+        updatePillCounts();
+        renderCandidates();
+    } catch(e) {
+        showToast('Failed to load candidates: ' + e.message, 'error');
+    }
+}
+
+function updatePillCounts() {
+    const counts = {};
+    allCandidates.forEach(c => {
+        counts[c.stage] = (counts[c.stage] || 0) + 1;
+    });
+    document.getElementById('count-ALL').textContent = allCandidates.length;
+    STAGES.forEach(s => {
+        const el = document.getElementById('count-' + s);
+        if (el) el.textContent = counts[s] || 0;
+    });
+}
+
+function applyFilters() {
+    renderCandidates();
+}
+
+function renderCandidates() {
+    const search  = document.getElementById('searchInput').value.toLowerCase().trim();
+    const vscFilter = document.getElementById('vscFilter').value.toLowerCase().trim();
+
+    let filtered = allCandidates.filter(c => {
+        const fullName = (c.first_name + ' ' + c.last_name).toLowerCase();
+        const matchSearch = !search ||
+            fullName.includes(search) ||
+            (c.email || '').toLowerCase().includes(search) ||
+            (c.city  || '').toLowerCase().includes(search) ||
+            (c.branch|| '').toLowerCase().includes(search);
+        const matchStage = !currentStageFilter || c.stage === currentStageFilter;
+        const matchVsc   = !vscFilter || (c.vsc_name || '').toLowerCase().includes(vscFilter);
+        return matchSearch && matchStage && matchVsc;
+    });
+
+    const grid = document.getElementById('candidateGrid');
+
+    if (filtered.length === 0) {
+        grid.innerHTML = '<p class="empty-state">No candidates match your filters.</p>';
+        return;
+    }
+
+    grid.innerHTML = '';
+    filtered.forEach(c => {
+        const card = document.createElement('div');
+        card.className = 'candidate-card';
+        const label = STAGE_LABELS[c.stage] || c.stage;
+        const color = STAGE_COLORS[c.stage] || '#667eea';
+        const subCount = c.submission_count || 0;
+        const lastEmail = c.last_email_at
+            ? 'Last email: ' + formatDate(c.last_email_at)
+            : 'No emails sent';
+
+        card.innerHTML = `
+            <span class="stage-badge" style="background:${color}">${label}</span>
+            <div class="card-name">${c.first_name} ${c.last_name}</div>
+            <div class="card-meta">
+                ${c.branch ? c.branch + (c.rank ? ' &bull; ' + c.rank : '') + '<br>' : ''}
+                ${c.city ? c.city + (c.state ? ', ' + c.state : '') + '<br>' : ''}
+                VSC: ${c.vsc_name || '—'}<br>
+                ${subCount} submission${subCount !== 1 ? 's' : ''} &bull; ${lastEmail}
+            </div>
+            <div class="card-actions">
+                <button class="card-btn card-btn-view"
+                        onclick="event.stopPropagation(); openDetail(${c.id})">View</button>
+                <button class="card-btn card-btn-email"
+                        onclick="event.stopPropagation(); goToEmailManagerFor(${c.id})">Email</button>
+            </div>
+        `;
+        card.onclick = () => openDetail(c.id);
+        grid.appendChild(card);
+    });
+}
+
+// ── Detail ─────────────────────────────────────────────────────────────────
+async function openDetail(id) {
+    try {
+        const [candResp, engResp] = await Promise.all([
+            fetch(`/api/candidates/${id}`),
+            fetch(`/api/candidates/${id}/engagements`)
+        ]);
+        const data = await candResp.json();
+        if (data.error) { showToast(data.error, 'error'); return; }
+        const engData = await engResp.json();
+
+        currentCandidate = data.candidate;
+        populateDetail(data.candidate, data.submissions, data.emails);
+        renderEngagements(engData.engagements || []);
+        document.getElementById('listView').style.display   = 'none';
+        document.getElementById('detailPanel').classList.add('open');
+        switchTab('profile', document.querySelector('.tab-btn'));
+    } catch(e) {
+        showToast('Failed to load candidate: ' + e.message, 'error');
+    }
+}
+
+function populateDetail(c, submissions, emails) {
+    // Header
+    document.getElementById('detailName').textContent =
+        c.first_name + ' ' + c.last_name;
+    document.getElementById('detailSub').textContent =
+        [c.branch, c.rank, c.city && c.state ? c.city + ', ' + c.state : '']
+        .filter(Boolean).join(' • ');
+
+    // Profile fields
+    ['first_name','last_name','email','phone','city','state',
+     'branch','rank','mos','years_served','vsc_name'].forEach(f => {
+        const el = document.getElementById('d_' + f);
+        if (el) el.value = c[f] || '';
+    });
+
+    // Notes
+    document.getElementById('d_notes').value = c.notes || '';
+
+    // Stage selector
+    const sel = document.getElementById('stageSelector');
+    sel.innerHTML = '';
+    STAGES.forEach(s => {
+        const btn = document.createElement('button');
+        btn.className = 'stage-btn' + (s === c.stage ? ' current' : '');
+        btn.style.background = STAGE_COLORS[s];
+        btn.textContent = STAGE_LABELS[s];
+        btn.onclick = () => changeStage(s);
+        sel.appendChild(btn);
+    });
+
+    // Emails
+    renderEmailHistory(emails);
+
+    // Submissions
+    renderSubmissions(submissions);
+}
+
+function renderEmailHistory(emails) {
+    const container = document.getElementById('emailHistoryContainer');
+    if (!emails || emails.length === 0) {
+        container.innerHTML = '<p class="text-muted">No emails on record for this candidate.</p>';
+        return;
+    }
+    let html = `
+        <table class="data-table">
+            <thead><tr>
+                <th>Date</th><th>VSC</th><th>Template</th><th>Subject</th><th>Status</th>
+            </tr></thead><tbody>
+    `;
+    emails.forEach(e => {
+        const cls = e.status === 'sent' ? 'text-success' : 'text-danger';
+        html += `<tr>
+            <td>${formatDate(e.sent_at)}</td>
+            <td>${e.vsc_name}</td>
+            <td>${e.template_label}</td>
+            <td>${e.subject}</td>
+            <td class="${cls}">${e.status}</td>
+        </tr>`;
+    });
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+function renderSubmissions(subs) {
+    const container = document.getElementById('submissionsContainer');
+    if (!subs || subs.length === 0) {
+        container.innerHTML = '<p class="text-muted">No submissions recorded yet.</p>';
+        return;
+    }
+    let html = `
+        <table class="data-table">
+            <thead><tr>
+                <th>Date</th><th>Job Title</th><th>Company</th><th>Outcome</th><th>Notes</th>
+            </tr></thead><tbody>
+    `;
+    subs.forEach(s => {
+        const outcomeClass = {
+            PENDING: 'text-warning', INTERVIEW: 'text-warning',
+            HIRED: 'text-success', REJECTED: 'text-danger'
+        }[s.outcome] || '';
+        html += `<tr>
+            <td>${formatDate(s.submitted_at)}</td>
+            <td>${s.job_title}</td>
+            <td>${s.company_name}</td>
+            <td>
+                <select class="outcome-select" onchange="updateOutcome(${s.id}, this.value)">
+                    ${['PENDING','INTERVIEW','HIRED','REJECTED'].map(o =>
+                        `<option value="${o}" ${o === s.outcome ? 'selected' : ''}>${o}</option>`
+                    ).join('')}
+                </select>
+            </td>
+            <td>${s.notes || '—'}</td>
+        </tr>`;
+    });
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+function backToList() {
+    currentCandidate = null;
+    document.getElementById('detailPanel').classList.remove('open');
+    document.getElementById('listView').style.display = 'block';
+    loadCandidates();
+}
+
+// ── Stage change ───────────────────────────────────────────────────────────
+async function changeStage(stage) {
+    if (!currentCandidate) return;
+    try {
+        await fetch(`/api/candidates/${currentCandidate.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ stage })
+        });
+        currentCandidate.stage = stage;
+        // Update stage selector UI
+        document.querySelectorAll('.stage-btn').forEach(btn => {
+            btn.classList.toggle('current', btn.textContent === STAGE_LABELS[stage]);
+        });
+        showToast('Stage updated to ' + STAGE_LABELS[stage], 'success');
+    } catch(e) {
+        showToast('Failed to update stage', 'error');
+    }
+}
+
+// ── Save profile ───────────────────────────────────────────────────────────
+async function saveProfile() {
+    if (!currentCandidate) return;
+    const fields = ['first_name','last_name','email','phone','city','state',
+                    'branch','rank','mos','years_served','vsc_name'];
+    const data = {};
+    fields.forEach(f => {
+        const el = document.getElementById('d_' + f);
+        if (el) data[f] = el.value.trim();
+    });
+    try {
+        const resp = await fetch(`/api/candidates/${currentCandidate.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await resp.json();
+        if (result.success) {
+            Object.assign(currentCandidate, data);
+            document.getElementById('detailName').textContent =
+                data.first_name + ' ' + data.last_name;
+            showToast('Profile saved', 'success');
+        }
+    } catch(e) {
+        showToast('Save failed: ' + e.message, 'error');
+    }
+}
+
+async function saveNotes() {
+    if (!currentCandidate) return;
+    const notes = document.getElementById('d_notes').value.trim();
+    try {
+        await fetch(`/api/candidates/${currentCandidate.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ notes })
+        });
+        showToast('Notes saved', 'success');
+    } catch(e) {
+        showToast('Save failed', 'error');
+    }
+}
+
+// ── Delete ─────────────────────────────────────────────────────────────────
+async function confirmDelete() {
+    if (!currentCandidate) return;
+    const name = currentCandidate.first_name + ' ' + currentCandidate.last_name;
+    if (!confirm(`Delete ${name}? This cannot be undone.`)) return;
+    try {
+        await fetch(`/api/candidates/${currentCandidate.id}`, { method: 'DELETE' });
+        showToast(name + ' deleted', 'success');
+        backToList();
+    } catch(e) {
+        showToast('Delete failed', 'error');
+    }
+}
+
+// ── Add candidate modal ────────────────────────────────────────────────────
+function openAddModal() {
+    document.getElementById('addModal').classList.add('open');
+}
+function closeAddModal() {
+    document.getElementById('addModal').classList.remove('open');
+}
+
+async function saveNewCandidate() {
+    const data = {
+        first_name:   document.getElementById('n_first_name').value.trim(),
+        last_name:    document.getElementById('n_last_name').value.trim(),
+        email:        document.getElementById('n_email').value.trim(),
+        phone:        document.getElementById('n_phone').value.trim(),
+        city:         document.getElementById('n_city').value.trim(),
+        state:        document.getElementById('n_state').value.trim(),
+        branch:       document.getElementById('n_branch').value,
+        rank:         document.getElementById('n_rank').value.trim(),
+        mos:          document.getElementById('n_mos').value.trim(),
+        years_served: document.getElementById('n_years_served').value.trim(),
+        vsc_name:     document.getElementById('n_vsc_name').value.trim(),
+    };
+    if (!data.first_name || !data.last_name || !data.vsc_name) {
+        showToast('First name, last name, and VSC name are required', 'error');
+        return;
+    }
+    try {
+        const resp = await fetch('/api/candidates', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await resp.json();
+        if (result.success) {
+            closeAddModal();
+            showToast(data.first_name + ' ' + data.last_name + ' added', 'success');
+            loadCandidates();
+            // Clear form
+            ['first_name','last_name','email','phone','city','state',
+             'branch','rank','mos','years_served','vsc_name'].forEach(f => {
+                const el = document.getElementById('n_' + f);
+                if (el) el.value = '';
+            });
+        } else {
+            showToast(result.error || 'Failed to add candidate', 'error');
+        }
+    } catch(e) {
+        showToast('Error: ' + e.message, 'error');
+    }
+}
+
+// ── Submission modal ───────────────────────────────────────────────────────
+function openSubmissionModal() {
+    document.getElementById('submissionModal').classList.add('open');
+}
+function closeSubmissionModal() {
+    document.getElementById('submissionModal').classList.remove('open');
+}
+
+async function saveSubmission() {
+    if (!currentCandidate) return;
+    const data = {
+        job_title:    document.getElementById('sub_job_title').value.trim(),
+        company_name: document.getElementById('sub_company_name').value.trim(),
+        notes:        document.getElementById('sub_notes').value.trim(),
+    };
+    if (!data.job_title || !data.company_name) {
+        showToast('Job title and company name required', 'error');
+        return;
+    }
+    try {
+        const resp = await fetch(`/api/candidates/${currentCandidate.id}/submissions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await resp.json();
+        if (result.success) {
+            closeSubmissionModal();
+            showToast('Submission recorded — stage advanced to Submitted', 'success');
+            currentCandidate.stage = 'SUBMITTED';
+            // Reload detail
+            openDetail(currentCandidate.id);
+            document.getElementById('sub_job_title').value   = '';
+            document.getElementById('sub_company_name').value = '';
+            document.getElementById('sub_notes').value        = '';
+        }
+    } catch(e) {
+        showToast('Error: ' + e.message, 'error');
+    }
+}
+
+async function updateOutcome(subId, outcome) {
+    try {
+        await fetch(`/api/submissions/${subId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ outcome })
+        });
+        showToast('Outcome updated to ' + outcome, 'success');
+        if (currentCandidate) {
+            // Refresh candidate stage
+            const resp = await fetch(`/api/candidates/${currentCandidate.id}`);
+            const data = await resp.json();
+            currentCandidate.stage = data.candidate.stage;
+            document.querySelectorAll('.stage-btn').forEach(btn => {
+                btn.classList.toggle('current',
+                    btn.textContent === STAGE_LABELS[data.candidate.stage]);
+            });
+        }
+    } catch(e) {
+        showToast('Update failed', 'error');
+    }
+}
+
+// ── Email navigation ───────────────────────────────────────────────────────
+function goToEmailManager() {
+    if (!currentCandidate) return;
+    goToEmailManagerFor(currentCandidate.id);
+}
+
+function goToEmailManagerFor(id) {
+    const c = allCandidates.find(x => x.id === id) || currentCandidate;
+    if (!c) { window.location.href = '/email-manager'; return; }
+    const params = new URLSearchParams({
+        name:  c.first_name + ' ' + c.last_name,
+        email: c.email || '',
+        id:    c.id
+    });
+    window.location.href = '/email-manager?' + params.toString();
+}
+
+// ── Tabs ───────────────────────────────────────────────────────────────────
+function switchTab(name, btnEl) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    // Find correct button
+    document.querySelectorAll('.tab-btn').forEach(b => {
+        if (b.textContent.toLowerCase().startsWith(name)) b.classList.add('active');
+    });
+}
+
+// ── Utilities ──────────────────────────────────────────────────────────────
+function formatDate(isoStr) {
+    if (!isoStr) return '—';
+    const d = new Date(isoStr.replace(' ', 'T'));
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function showToast(msg, type = 'success') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast ' + type;
+    setTimeout(() => { t.className = 'toast'; }, 4000);
+}
+
+// ── Engagements ────────────────────────────────────────────────────────────
+function updateEngSubtypes() {
+    const type = document.getElementById('eng_type').value;
+    const sub  = document.getElementById('eng_subtype');
+    const options = ENG_SUBTYPES[type] || [];
+    if (options.length === 0) {
+        sub.innerHTML = '<option value="">— N/A —</option>';
+        sub.disabled = true;
+    } else {
+        sub.disabled = false;
+        sub.innerHTML = '<option value="">Select method...</option>' +
+            options.map(k => `<option value="${k}">${ENG_SUBTYPE_LABELS[k] || k}</option>`).join('');
+    }
+}
+
+async function logEngagement() {
+    if (!currentCandidate) return;
+    const type    = document.getElementById('eng_type').value;
+    const subtype = document.getElementById('eng_subtype').value;
+    const notes   = document.getElementById('eng_notes').value.trim();
+    const vsc     = document.getElementById('d_vsc_name').value.trim() ||
+                    currentCandidate.vsc_name || 'VSC';
+
+    if (!type) { showToast('Select an engagement type', 'error'); return; }
+
+    const subtypes = ENG_SUBTYPES[type] || [];
+    if (subtypes.length > 0 && !subtype) {
+        showToast('Select a method / subtype', 'error'); return;
+    }
+
+    try {
+        const resp = await fetch(`/api/candidates/${currentCandidate.id}/engagements`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type, subtype: subtype || null, notes, vsc_name: vsc })
+        });
+        const result = await resp.json();
+        if (!result.success) { showToast(result.error || 'Failed to log', 'error'); return; }
+
+        showToast('Engagement logged', 'success');
+        // Reset form
+        document.getElementById('eng_type').value  = '';
+        document.getElementById('eng_subtype').innerHTML = '<option value="">— select type first —</option>';
+        document.getElementById('eng_subtype').disabled  = false;
+        document.getElementById('eng_notes').value = '';
+        // Reload engagements
+        const engResp = await fetch(`/api/candidates/${currentCandidate.id}/engagements`);
+        const engData = await engResp.json();
+        renderEngagements(engData.engagements || []);
+    } catch(e) {
+        showToast('Error: ' + e.message, 'error');
+    }
+}
+
+function renderEngagements(engagements) {
+    const container = document.getElementById('engagementsContainer');
+    if (!engagements || engagements.length === 0) {
+        container.innerHTML = '<p class="text-muted">No engagements recorded yet.</p>';
+        return;
+    }
+    let html = `
+        <table class="data-table">
+            <thead><tr>
+                <th>Date</th><th>VSC</th><th>Type</th><th>Method</th><th>Notes</th>
+            </tr></thead><tbody>
+    `;
+    engagements.forEach(e => {
+        const typeLabel    = ENG_TYPE_LABELS[e.type]    || e.type;
+        const subtypeLabel = e.subtype ? (ENG_SUBTYPE_LABELS[e.subtype] || e.subtype) : '—';
+        html += `<tr>
+            <td>${formatDate(e.created_at)}</td>
+            <td>${e.vsc_name || '—'}</td>
+            <td><strong>${typeLabel}</strong></td>
+            <td>${subtypeLabel}</td>
+            <td>${e.notes || '—'}</td>
+        </tr>`;
+    });
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+// Close modals on overlay click
+document.getElementById('addModal').addEventListener('click', function(e) {
+    if (e.target === this) closeAddModal();
+});
+document.getElementById('submissionModal').addEventListener('click', function(e) {
+    if (e.target === this) closeSubmissionModal();
+});
+</script>
+</body>
+</html>
