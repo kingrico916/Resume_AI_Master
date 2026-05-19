@@ -2138,6 +2138,14 @@ def powerautomate_webhook():
         candidate_name  = re.sub(r'\s+via\s+.+$', '', candidate_name, flags=re.IGNORECASE).strip()
         candidate_email = (data.get('candidate_email') or '').strip()
         candidate_phone = (data.get('candidate_phone') or '').strip()
+        email_body      = (data.get('email_body') or '').strip()
+
+        # Append email body to resume text if provided — often contains
+        # cover letter content or qualifications not in the attached resume.
+        if resume_text and email_body:
+            resume_text = f"{resume_text}\n\n--- CANDIDATE APPLICATION MESSAGE ---\n{email_body}"
+        elif email_body and not resume_text:
+            resume_text = email_body
 
         # Parse job title from subject line if not provided directly
         if not job_title and subject_line:
@@ -2600,18 +2608,24 @@ def _process_inbox_message(token, msg):
     candidate_email_addr = from_obj.get("address", "")
     candidate_name       = from_obj.get("name", "") or candidate_email_addr.split("@")[0]
 
-    # Try attachments first — the actual resume is almost always a PDF/DOCX attachment
+    # Always capture email body — it often contains cover letter content,
+    # listed qualifications, or tool experience not present in the resume.
+    body_obj  = msg.get("body", {})
+    body_text = body_obj.get("content", "")
+    if body_obj.get("contentType", "").lower() == "html":
+        body_text = re.sub(r"<[^>]+>", " ", body_text)
+        body_text = re.sub(r"\s+", " ", body_text).strip()
+
+    # Get the resume from attachment
     resume_text = _fetch_attachment_text(token, msg_id)
 
-    # Fall back to email body if no parseable attachment found
-    if not resume_text:
-        body_obj    = msg.get("body", {})
-        resume_text = body_obj.get("content", "")
-        if body_obj.get("contentType", "").lower() == "html":
-            resume_text = re.sub(r"<[^>]+>", " ", resume_text)
-            resume_text = re.sub(r"\s+", " ", resume_text).strip()
-        if resume_text:
-            print(f"  No attachment found — using email body ({len(resume_text)} chars)")
+    # Combine: resume + email body so the AI sees everything the candidate sent
+    if resume_text and body_text:
+        resume_text = f"{resume_text}\n\n--- CANDIDATE APPLICATION MESSAGE ---\n{body_text}"
+        print(f"  Resume + email body combined ({len(resume_text)} chars)")
+    elif body_text:
+        resume_text = body_text
+        print(f"  No attachment — using email body only ({len(resume_text)} chars)")
 
     if not resume_text:
         print(f"Inbox poll: no resume content in '{subject[:50]}' — skipping")
