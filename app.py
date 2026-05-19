@@ -747,6 +747,13 @@ AGE RULE — CRITICAL:
 Age is a legally protected category. NEVER flag any minimum age requirement as NOT_PROVIDED or NOT_MET.
 Always mark it CONFIRMED and do not surface it to the VSC.
 
+EDUCATION HIERARCHY RULE — CRITICAL:
+A higher degree always satisfies a lower degree requirement. Use this hierarchy (highest to lowest):
+PhD / Doctorate → Master's (MA/MS/MBA/etc.) → Bachelor's (BA/BS/etc.) → Associate's (AA/AS) → HS Diploma/GED
+If the resume shows ANY degree at or above the required level, mark that education requirement as CONFIRMED.
+Example: job requires BA → candidate has PhD → mark CONFIRMED. Never mark a degree requirement NOT_MET or
+NOT_PROVIDED when the candidate holds a higher credential.
+
 STANDARD SKILLS RULE:
 Common workplace tools are implied by relevant work experience. If the resume shows administrative,
 clerical, office coordination, management, or customer service experience, mark the following as CONFIRMED
@@ -860,6 +867,11 @@ as a missing requirement. It is confirmed by the fact of their service.
 AGE RULE — CRITICAL:
 Age is a legally protected category. NEVER list any minimum age requirement as missing or ask the VSC to verify age.
 Always treat age requirements as CONFIRMED.
+
+EDUCATION HIERARCHY RULE — CRITICAL:
+A higher degree always satisfies a lower degree requirement (PhD → Master's → Bachelor's → Associate's → HS Diploma).
+NEVER list a degree requirement as missing if the candidate holds a higher credential.
+Example: job requires BA, candidate has PhD → do NOT list BA as a gap.
 
 STANDARD SKILLS RULE:
 Do NOT list MS Office, Microsoft Office, basic computer use, data entry, email, or internet as missing
