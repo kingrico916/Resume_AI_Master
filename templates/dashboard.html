@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Management Dashboard — Work for Warriors AWIS</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f7;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container { max-width: 1300px; margin: 0 auto; }
+
+        /* ── Header ── */
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            padding: 22px 28px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .header h1 { color: white; font-size: 1.4em; font-weight: 700; }
+        .header .sub { color: rgba(255,255,255,0.8); font-size: 0.85em; margin-top: 2px; }
+        .header nav { display: flex; gap: 8px; flex-wrap: wrap; }
+        .header nav a {
+            color: rgba(255,255,255,0.85);
+            text-decoration: none;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.82em;
+            font-weight: 600;
+            border: 1.5px solid rgba(255,255,255,0.4);
+            transition: all 0.15s;
+        }
+        .header nav a:hover { background: rgba(255,255,255,0.2); color: white; }
+        .header nav a.active { background: rgba(255,255,255,0.25); color: white; }
+        .logout { color: rgba(255,255,255,0.6) !important; }
+
+        /* ── KPI Cards ── */
+        .kpi-row {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+        @media (max-width: 900px) { .kpi-row { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 600px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
+
+        .kpi-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px 18px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+            border-left: 4px solid #667eea;
+        }
+        .kpi-card.green  { border-left-color: #4CAF50; }
+        .kpi-card.blue   { border-left-color: #2196F3; }
+        .kpi-card.orange { border-left-color: #FF9800; }
+        .kpi-card.purple { border-left-color: #9C27B0; }
+
+        .kpi-label { font-size: 0.75em; font-weight: 600; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; }
+        .kpi-value { font-size: 2em; font-weight: 700; color: #2d3748; margin-top: 4px; line-height: 1; }
+        .kpi-sub   { font-size: 0.78em; color: #a0aec0; margin-top: 4px; }
+
+        /* ── Two-column layout ── */
+        .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+        @media (max-width: 900px) { .row { grid-template-columns: 1fr; } }
+
+        /* ── Cards ── */
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 22px 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+        }
+        .card.full { grid-column: 1 / -1; }
+        .card h2 {
+            font-size: 0.88em;
+            font-weight: 700;
+            color: #4a5568;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            margin-bottom: 16px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f2f7;
+        }
+
+        /* ── Pipeline bars ── */
+        .pipeline-list { display: flex; flex-direction: column; gap: 10px; }
+        .pipeline-item { display: flex; align-items: center; gap: 10px; }
+        .pipeline-label {
+            width: 160px;
+            flex-shrink: 0;
+            font-size: 0.82em;
+            font-weight: 600;
+            color: #4a5568;
+            text-align: right;
+        }
+        .bar-wrap { flex: 1; background: #f0f2f7; border-radius: 6px; height: 22px; overflow: hidden; }
+        .bar { height: 100%; border-radius: 6px; min-width: 2px; transition: width 0.3s; }
+        .pipeline-count {
+            width: 36px;
+            text-align: right;
+            font-size: 0.82em;
+            font-weight: 700;
+            color: #2d3748;
+        }
+
+        /* ── VSC table ── */
+        table { width: 100%; border-collapse: collapse; font-size: 0.87em; }
+        th {
+            text-align: left;
+            font-size: 0.75em;
+            font-weight: 700;
+            color: #718096;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 6px 10px 10px;
+            border-bottom: 2px solid #f0f2f7;
+        }
+        td { padding: 10px 10px; border-bottom: 1px solid #f7f8fc; color: #2d3748; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: #fafbff; }
+        .num { text-align: right; font-weight: 600; }
+        .ghost-zero { color: #4CAF50; }
+        .ghost-some { color: #FF9800; font-weight: 700; }
+        .ghost-many { color: #f44336; font-weight: 700; }
+
+        /* ── Outcome badge ── */
+        .badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.78em;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+        .badge-HIRED    { background: #e8f5e9; color: #2e7d32; }
+        .badge-REJECTED { background: #ffebee; color: #c62828; }
+        .badge-PENDING  { background: #fff3e0; color: #e65100; }
+        .badge-INTERVIEW { background: #e3f2fd; color: #1565c0; }
+
+        /* ── Refresh ── */
+        .refresh-btn {
+            float: right;
+            margin-top: -2px;
+            font-size: 0.75em;
+            color: #667eea;
+            cursor: pointer;
+            font-weight: 600;
+            background: none;
+            border: none;
+            padding: 0;
+        }
+        .refresh-btn:hover { text-decoration: underline; }
+        .last-updated { font-size: 0.73em; color: #a0aec0; float: right; margin-top: 4px; }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- Header -->
+    <div class="header">
+        <div>
+            <h1>Management Dashboard</h1>
+            <div class="sub">Work for Warriors — AWIS Operations</div>
+        </div>
+        <nav>
+            <a href="/crm">CRM</a>
+            <a href="/dashboard" class="active">Dashboard</a>
+            <a href="/email-manager">Emails</a>
+            <a href="/logout" class="logout">Sign Out</a>
+        </nav>
+    </div>
+
+    <!-- KPI Row -->
+    <div class="kpi-row">
+        <div class="kpi-card">
+            <div class="kpi-label">Total Candidates</div>
+            <div class="kpi-value">{{ stats.total_candidates }}</div>
+            <div class="kpi-sub">All time</div>
+        </div>
+        <div class="kpi-card blue">
+            <div class="kpi-label">Active</div>
+            <div class="kpi-value">{{ stats.total_active }}</div>
+            <div class="kpi-sub">In pipeline</div>
+        </div>
+        <div class="kpi-card green">
+            <div class="kpi-label">Hired</div>
+            <div class="kpi-value">{{ stats.hired }}</div>
+            <div class="kpi-sub">All time</div>
+        </div>
+        <div class="kpi-card orange">
+            <div class="kpi-label">Placement Rate</div>
+            <div class="kpi-value">{{ stats.placement_rate }}%</div>
+            <div class="kpi-sub">Hired ÷ (Hired + Rejected)</div>
+        </div>
+        <div class="kpi-card purple">
+            <div class="kpi-label">Emails Sent</div>
+            <div class="kpi-value">{{ stats.total_emails }}</div>
+            <div class="kpi-sub">All time</div>
+        </div>
+    </div>
+
+    <!-- Pipeline + VSC Table -->
+    <div class="row">
+
+        <!-- Pipeline Funnel -->
+        <div class="card">
+            <h2>Pipeline</h2>
+            {% set max_count = stats.pipeline.values() | max if stats.pipeline else 1 %}
+            <div class="pipeline-list">
+                {% for stage in pipeline_stages %}
+                {% set count = stats.pipeline.get(stage, 0) %}
+                {% set color = stage_colors.get(stage, '#667eea') %}
+                {% set label = stage_labels.get(stage, stage) %}
+                <div class="pipeline-item">
+                    <div class="pipeline-label">{{ label }}</div>
+                    <div class="bar-wrap">
+                        <div class="bar"
+                             style="width: {{ ((count / max_count) * 100) | round }}%; background: {{ color }};"></div>
+                    </div>
+                    <div class="pipeline-count">{{ count }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- VSC Performance -->
+        <div class="card">
+            <h2>VSC Performance</h2>
+            {% if stats.vsc_stats %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>VSC</th>
+                        <th class="num">Candidates</th>
+                        <th class="num">Active</th>
+                        <th class="num">Submitted</th>
+                        <th class="num">Hired</th>
+                        <th class="num">Emails</th>
+                        <th class="num">Ghosts</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for vsc in stats.vsc_stats %}
+                    <tr>
+                        <td>{{ vsc.vsc_name }}</td>
+                        <td class="num">{{ vsc.candidates }}</td>
+                        <td class="num">{{ vsc.active }}</td>
+                        <td class="num">{{ vsc.submitted }}</td>
+                        <td class="num">{{ vsc.hired }}</td>
+                        <td class="num">{{ vsc.emails }}</td>
+                        <td class="num">
+                            {% if vsc.ghosts == 0 %}
+                            <span class="ghost-zero">0</span>
+                            {% elif vsc.ghosts <= 3 %}
+                            <span class="ghost-some">{{ vsc.ghosts }}</span>
+                            {% else %}
+                            <span class="ghost-many">{{ vsc.ghosts }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="color:#a0aec0; font-size:0.9em; text-align:center; padding: 20px 0;">No candidate data yet.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Recent Submissions -->
+    <div class="card full" style="margin-bottom: 20px;">
+        <h2>
+            Recent Submissions
+            <button class="refresh-btn" onclick="location.reload()">Refresh</button>
+        </h2>
+        {% if stats.recent_submissions %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Candidate</th>
+                    <th>Job Title</th>
+                    <th>Company</th>
+                    <th>VSC</th>
+                    <th>Outcome</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in stats.recent_submissions %}
+                <tr>
+                    <td style="color:#718096; font-size:0.83em; white-space:nowrap;">
+                        {{ s.submitted_at[:10] if s.submitted_at else '—' }}
+                    </td>
+                    <td>{{ s.candidate_name }}</td>
+                    <td>{{ s.job_title }}</td>
+                    <td style="color:#718096;">{{ s.company_name }}</td>
+                    <td style="color:#718096;">{{ s.vsc_name }}</td>
+                    <td>
+                        <span class="badge badge-{{ s.outcome }}">{{ s.outcome }}</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="color:#a0aec0; font-size:0.9em; text-align:center; padding: 20px 0;">No submissions recorded yet.</p>
+        {% endif %}
+        <div class="last-updated">Updated {{ now }}</div>
+    </div>
+
+</div>
+
+<script>
+    // Inject current time
+    document.querySelector('.last-updated').textContent =
+        'Updated ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+</script>
+</body>
+</html>

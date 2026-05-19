@@ -866,6 +866,106 @@ def get_custom_templates() -> list:
     return rows
 
 
+def get_dashboard_stats() -> dict:
+    """All data needed for the management dashboard. Single DB round-trip."""
+    conn = get_connection()
+    c    = conn.cursor()
+
+    # Pipeline stage counts (all VSCs)
+    c.execute("SELECT stage, COUNT(*) as n FROM candidates WHERE is_deleted=0 GROUP BY stage")
+    pipeline = {r['stage']: r['n'] for r in c.fetchall()}
+
+    # Submission outcomes
+    c.execute("SELECT outcome, COUNT(*) as n FROM submissions GROUP BY outcome")
+    outcomes   = {r['outcome']: r['n'] for r in c.fetchall()}
+    hired      = outcomes.get('HIRED', 0)
+    rejected   = outcomes.get('REJECTED', 0)
+    placement  = round(hired / (hired + rejected) * 100) if (hired + rejected) > 0 else 0
+
+    # Total emails sent
+    c.execute("SELECT COUNT(*) FROM email_logs WHERE status='sent'")
+    total_emails = c.fetchone()[0]
+
+    # Per-VSC: candidates, active, hired (stage), submissions, submission-hires, emails, ghosts
+    c.execute("""
+        SELECT vsc_name,
+               COUNT(*) AS candidates,
+               COUNT(CASE WHEN stage NOT IN ('HIRED','REJECTED','WITHDRAWN') THEN 1 END) AS active,
+               COUNT(CASE WHEN stage = 'HIRED' THEN 1 END) AS hired
+        FROM candidates
+        WHERE is_deleted = 0
+        GROUP BY vsc_name
+        ORDER BY candidates DESC
+    """)
+    vsc_map = {r['vsc_name']: {
+        'vsc_name':   r['vsc_name'],
+        'candidates': r['candidates'],
+        'active':     r['active'],
+        'hired':      r['hired'],
+        'submitted':  0,
+        'sub_hired':  0,
+        'emails':     0,
+        'ghosts':     0,
+    } for r in c.fetchall()}
+
+    c.execute("""
+        SELECT c.vsc_name,
+               COUNT(s.id) AS submitted,
+               COUNT(CASE WHEN s.outcome='HIRED' THEN 1 END) AS sub_hired
+        FROM submissions s JOIN candidates c ON s.candidate_id = c.id
+        GROUP BY c.vsc_name
+    """)
+    for r in c.fetchall():
+        if r['vsc_name'] in vsc_map:
+            vsc_map[r['vsc_name']]['submitted'] = r['submitted']
+            vsc_map[r['vsc_name']]['sub_hired'] = r['sub_hired']
+
+    c.execute("SELECT vsc_name, COUNT(*) AS n FROM email_logs WHERE status='sent' GROUP BY vsc_name")
+    for r in c.fetchall():
+        if r['vsc_name'] in vsc_map:
+            vsc_map[r['vsc_name']]['emails'] = r['n']
+
+    cutoff = (datetime.now() - timedelta(days=7)).isoformat()
+    c.execute("""
+        SELECT c.vsc_name, COUNT(DISTINCT c.id) AS n
+        FROM candidates c
+        WHERE c.is_deleted = 0
+          AND c.stage NOT IN ('HIRED','REJECTED','WITHDRAWN')
+          AND NOT EXISTS (
+              SELECT 1 FROM engagements e
+              WHERE e.candidate_id = c.id AND e.created_at >= ?
+          )
+        GROUP BY c.vsc_name
+    """, (cutoff,))
+    for r in c.fetchall():
+        if r['vsc_name'] in vsc_map:
+            vsc_map[r['vsc_name']]['ghosts'] = r['n']
+
+    # Recent submissions
+    c.execute("""
+        SELECT s.submitted_at, s.job_title, s.company_name, s.outcome,
+               c.first_name || ' ' || c.last_name AS candidate_name,
+               c.vsc_name
+        FROM submissions s JOIN candidates c ON s.candidate_id = c.id
+        ORDER BY s.submitted_at DESC LIMIT 15
+    """)
+    recent = [dict(r) for r in c.fetchall()]
+
+    conn.close()
+    total = sum(pipeline.values())
+    active = sum(v['active'] for v in vsc_map.values())
+    return {
+        'pipeline':         pipeline,
+        'total_candidates': total,
+        'total_active':     active,
+        'hired':            hired,
+        'placement_rate':   placement,
+        'total_emails':     total_emails,
+        'vsc_stats':        list(vsc_map.values()),
+        'recent_submissions': recent,
+    }
+
+
 def delete_custom_template(key: str) -> bool:
     """Delete a custom template by key. Returns True if deleted."""
     conn = get_connection()

@@ -41,7 +41,7 @@ from data.database import (
     log_engagement, get_engagements, get_candidates_needing_followup,
     save_custom_template, get_custom_templates, delete_custom_template,
     log_job_upload, get_last_job_upload, delete_job_by_title,
-    get_user_by_email, get_user_by_id, seed_users,
+    get_user_by_email, get_user_by_id, seed_users, get_dashboard_stats,
     PIPELINE_STAGES, STAGE_LABELS, STAGE_COLORS, MILITARY_BRANCHES,
     ENGAGEMENT_TYPES, ENGAGEMENT_SUBTYPES, ENGAGEMENT_TYPE_LABELS, ENGAGEMENT_SUBTYPE_LABELS
 )
@@ -1833,6 +1833,27 @@ def submissions_update(sub_id):
 
 
 #  Automated Mode 
+
+@app.route('/dashboard')
+@login_required
+def management_dashboard():
+    if session.get('role') != 'admin':
+        return redirect(url_for('crm'))
+    stats = get_dashboard_stats()
+    return render_template('dashboard.html',
+                           stats=stats,
+                           pipeline_stages=PIPELINE_STAGES,
+                           stage_labels=STAGE_LABELS,
+                           stage_colors=STAGE_COLORS)
+
+
+@app.route('/api/dashboard/stats', methods=['GET'])
+@api_login_required
+def dashboard_stats_api():
+    if session.get('role') != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+    return jsonify(get_dashboard_stats())
+
 
 @app.route('/automated')
 @login_required
