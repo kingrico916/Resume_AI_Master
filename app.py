@@ -218,6 +218,91 @@ if _db_jobs:
     print(f"Loaded {len(JOBS_DB)} jobs from database")
 
 # Military rank crosswalk (from Master Prompt)
+MOS_CROSSWALK = {
+    # ── Army ──────────────────────────────────────────────────────────────────
+    "11B": "Infantry → Security Operations / Law Enforcement Support / Protective Services",
+    "11C": "Indirect Fire Infantryman → Tactical Operations Coordinator / Field Operations Specialist",
+    "12B": "Combat Engineer → Construction Manager / Project Coordinator / Infrastructure Specialist",
+    "12N": "Horizontal Construction Engineer → Heavy Equipment Operator / Site Supervisor",
+    "13B": "Cannon Crewmember → Heavy Equipment Operator / Ballistics Technician",
+    "15T": "UH-60 Helicopter Repairer → Aviation Maintenance Technician / Rotary Wing Mechanic",
+    "25B": "IT Specialist → Systems Administrator / Network Administrator / IT Support Specialist",
+    "25U": "Signal Support Specialist → IT Support Specialist / Network Technician / Communications Technician",
+    "27D": "Paralegal Specialist → Legal Assistant / Compliance Coordinator / Paralegal",
+    "31B": "Military Police → Law Enforcement Officer / Security Manager / Loss Prevention Specialist",
+    "35F": "Intelligence Analyst → Intelligence Analyst / Data Analyst / Research Analyst",
+    "42A": "Human Resources Specialist → HR Coordinator / Talent Acquisition Specialist / Benefits Administrator",
+    "56M": "Religious Affairs NCO → Counseling Support Specialist / Community Outreach Coordinator",
+    "68D": "Operating Room Specialist → Surgical Technologist / OR Technician / Perioperative Tech",
+    "68K": "Medical Laboratory Specialist → Clinical Laboratory Technician / Lab Scientist",
+    "68P": "Radiology Specialist → Radiologic Technologist / X-Ray Technician",
+    "68W": "Combat Medic Specialist → EMT / Medical Technician / Clinical Support Specialist",
+    "79S": "Career Counselor → Career Development Specialist / HR Advisor / Workforce Coach",
+    "88M": "Motor Transport Operator → CDL Driver / Logistics Coordinator / Fleet Operator",
+    "88N": "Transportation Management Coordinator → Logistics Coordinator / Supply Chain Analyst",
+    "89D": "Explosive Ordnance Disposal → EOD Technician / Hazmat Specialist / Safety Officer",
+    "91B": "Wheeled Vehicle Mechanic → Automotive Mechanic / Fleet Maintenance Technician",
+    "92A": "Automated Logistical Specialist → Supply Chain Coordinator / Inventory Manager / Warehouse Supervisor",
+    "92F": "Petroleum Supply Specialist → Fuel Operations Specialist / Logistics Coordinator",
+    "92Y": "Unit Supply Specialist → Supply Chain Specialist / Warehouse Coordinator / Inventory Control Specialist",
+    # ── Navy Ratings ──────────────────────────────────────────────────────────
+    "HM":  "Hospital Corpsman → EMT / Medical Technician / Clinical Support Specialist",
+    "IT":  "Information Systems Technician → IT Administrator / Network Specialist / Systems Analyst",
+    "YN":  "Yeoman → Administrative Coordinator / Office Manager / Executive Assistant",
+    "BM":  "Boatswain's Mate → Maritime Operations Supervisor / Deck Supervisor",
+    "EM":  "Electrician's Mate → Electrician / Electrical Systems Technician",
+    "EN":  "Engineman → Marine Diesel Mechanic / Engine Technician / Marine Technician",
+    "MA":  "Master-at-Arms → Security Officer / Law Enforcement / Access Control Specialist",
+    "CS":  "Culinary Specialist → Food Service Manager / Executive Chef / Dining Operations Supervisor",
+    "ET":  "Electronics Technician → Electronics Technician / Systems Technician / Avionics Specialist",
+    "LS":  "Logistics Specialist → Logistics Coordinator / Supply Chain Specialist / Procurement Analyst",
+    "PS":  "Personnel Specialist → HR Coordinator / Benefits Specialist / Personnel Administrator",
+    "GM":  "Gunner's Mate → Weapons Systems Technician / Ordnance Specialist / Range Safety Officer",
+    # ── Marine Corps MOS ──────────────────────────────────────────────────────
+    "0311": "Rifleman → Security Operations Specialist / Law Enforcement Support",
+    "0331": "Machine Gunner → Weapons Systems Operator / Range Safety Officer",
+    "0811": "Field Artillery Cannoneer → Heavy Equipment Operator / Ballistics Technician",
+    "1371": "Combat Engineer → Construction Supervisor / Infrastructure Project Specialist",
+    "2651": "Intelligence Analyst → Intelligence Analyst / Geospatial Analyst / Data Analyst",
+    "3043": "Supply Administration → Supply Chain Coordinator / Logistics Specialist",
+    "3051": "Warehouse Specialist → Warehouse Manager / Inventory Control Specialist",
+    "3531": "Motor Vehicle Operator → CDL Driver / Fleet Coordinator / Transportation Specialist",
+    "4421": "Legal Services Specialist → Legal Assistant / Paralegal / Compliance Specialist",
+    "5811": "Military Police → Law Enforcement Officer / Security Supervisor",
+    "6511": "Aviation Mechanic → Aviation Maintenance Technician / Airframe Mechanic",
+    # ── Air Force AFSC ────────────────────────────────────────────────────────
+    "1A2X1": "Aircraft Loadmaster → Cargo Operations Specialist / Aviation Logistics Coordinator",
+    "1N0X1": "Operations Intelligence → Intelligence Analyst / Operations Analyst",
+    "2A3X3": "Tactical Aircraft Maintenance → Aircraft Maintenance Technician / Avionics Inspector",
+    "2A5X1": "Aerospace Maintenance → Aerospace Maintenance Technician / Quality Assurance Inspector",
+    "2E1X1": "Ground Radio Communications → Communications Systems Technician / RF Specialist",
+    "3D1X2": "Cyber Systems Operations → Cybersecurity Analyst / IT Systems Administrator",
+    "3D0X2": "Cyber Transport Systems → Network Administrator / Systems Engineer",
+    "3E0X1": "Electrical Systems → Licensed Electrician / Electrical Systems Supervisor",
+    "3E3X1": "Structural → Structural Technician / Construction Specialist / Facilities Engineer",
+    "3E4X3": "Utilities Systems → Facilities Maintenance Technician / HVAC Specialist",
+    "4N0X1": "Aerospace Medical Technician → EMT / Medical Technician / Clinical Support",
+    "4Y0X1": "Dental Assistant → Dental Assistant / Oral Health Technician",
+    "6C0X1": "Contracting → Procurement Specialist / Contracts Administrator / Acquisition Analyst",
+    # ── Coast Guard ───────────────────────────────────────────────────────────
+    "ME":  "Maritime Enforcement Specialist → Law Enforcement Officer / Maritime Security Specialist",
+    "MK":  "Machinery Technician → Marine Engineer / Diesel Mechanic / Marine Systems Technician",
+}
+
+
+def _extract_mos_translations(resume_text: str) -> str:
+    """Scan resume for known MOS/rating/AFSC codes. Returns formatted translation block or empty string."""
+    found = []
+    text_upper = resume_text.upper()
+    for code, translation in MOS_CROSSWALK.items():
+        pattern = rf'\b{re.escape(code)}\b'
+        if re.search(pattern, text_upper):
+            found.append(f"  {code}: {translation}")
+    if not found:
+        return ""
+    return "MILITARY OCCUPATIONAL SPECIALTY TRANSLATIONS (extracted from resume):\n" + "\n".join(found)
+
+
 MILITARY_CROSSWALK = """
 U.S. Army / Marine Corps (Enlisted & NCOs)
 Private (E-1/E-2)  Entry-Level Team Member / Trainee
@@ -698,31 +783,53 @@ SHADOW_GRADE: [grade or N/A]
 CLASSIFICATION: [Direct Fit | Redirect | Develop | Non-viable]
 END"""
 
-    # ── Track 2: Development (Gemma → DeepSeek) ───────────────────────────────
+    # ── Track 2: Development ──────────────────────────────────────────────────
+    mos_translations = _extract_mos_translations(resume_text)
+    mos_block = f"\n{mos_translations}\n" if mos_translations else ""
+
     t2 = f"""You are a veteran career coach and resume writer for Work for Warriors.
 
 CANDIDATE: {candidate_name}
 JOB: {job_title} at {company}
-JOB DESCRIPTION: {job_desc}
+JOB DESCRIPTION:
+{job_desc}
+
+REQUIRED QUALIFICATIONS:
+{qualifications}
+
 RESUME:
 {resume_text}
 
-MILITARY CROSSWALK:
-{MILITARY_CROSSWALK}
+RANK-TO-CIVILIAN CROSSWALK:
+{MILITARY_CROSSWALK}{mos_block}
+RULES:
+- No fabrication. Never invent experience, credentials, or metrics not in the original resume.
+- Quantify only what the resume already supports. If a number isn't there, don't add one.
+- Translate all military jargon to civilian language (e.g. "deployed" → "mobilized", "TDY" → "temporary assignment", "CONUS/OCONUS" → omit or rephrase).
+- Use the rank crosswalk and any MOS translations above to reframe military titles and roles.
+- Resume rewrite must fit one page. Prioritize relevance to the target job.
 
-RULES: No fabrication. ATS-aligned language. Resume rewrite max 1 page. Quantify only what the resume already supports.
+STEP 1 — Extract ATS keywords from the job description above.
+Identify 10-15 specific terms the employer's ATS will scan for: required skills, certifications, tools, job-specific phrases, and action verbs from the posting.
+
+STEP 2 — Write the resume using those keywords naturally integrated wherever the candidate's actual experience supports them.
 
 OUTPUT — EXACT FORMAT ONLY:
+ATS_KEYWORDS:
+[comma-separated list of 10-15 keywords from the job description]
+
 JUSTIFICATION:
-- [bullet on requirement alignment, transferable skills, gaps, or risk]
-- [bullet]
-- [bullet]
+- [bullet: how candidate's background aligns to this specific role]
+- [bullet: transferable skills or military experience that maps to requirements]
+- [bullet: any risk, gap, or notable strength worth flagging for the VSC]
 
 IMPROVEMENTS:
-- [ATS wording improvement]
+- [specific ATS language change — original phrase → improved phrase]
+- [specific ATS language change]
+- [specific ATS language change]
 
 RESUME_REWRITE:
-[Full rewritten resume — civilian translation, ATS-optimized, no invented experience]
+[Full civilian-language, ATS-optimized resume. Sections: Professional Summary | Core Competencies | Professional Experience | Military Service | Education & Certifications. No invented experience.]
 END"""
 
     # ── Track 3: Verification (GPT-OSS 120B → Nemotron) ──────────────────────
@@ -848,14 +955,9 @@ END"""
             t1, 800
         ), daemon=True),
         threading.Thread(target=run_track, args=(
-            'development_a',
+            'development',
             ["nvidia/nemotron-3-super-120b-a12b:free", "openai/gpt-oss-120b:free"],
-            t2, 3000
-        ), daemon=True),
-        threading.Thread(target=run_track, args=(
-            'development_b',
-            ["openai/gpt-oss-120b:free", "nvidia/nemotron-3-super-120b-a12b:free"],
-            t2, 3000
+            t2, 3200
         ), daemon=True),
         threading.Thread(target=run_track, args=(
             'verification',
@@ -873,35 +975,31 @@ END"""
     for t in threads:
         t.join()
 
-    e_text,  e_model  = track_results.get('eligibility',   (None, None))
-    da_text, da_model = track_results.get('development_a', (None, None))
-    db_text, db_model = track_results.get('development_b', (None, None))
-    v_text,  v_model  = track_results.get('verification',  (None, None))
-    o_text,  o_model  = track_results.get('opportunities', (None, None))
+    e_text, e_model = track_results.get('eligibility',  (None, None))
+    d_text, d_model = track_results.get('development',  (None, None))
+    v_text, v_model = track_results.get('verification', (None, None))
+    o_text, o_model = track_results.get('opportunities',(None, None))
 
     if not e_text:
         print(f" Council: eligibility track failed — cannot produce report")
         return None, None
 
-    for label, text in [('development_a', da_text), ('verification', v_text), ('opportunities', o_text)]:
+    for label, text in [('development', d_text), ('verification', v_text), ('opportunities', o_text)]:
         if not text:
             print(f" Council: {label} track failed — section will be empty")
 
-    assembled = "\n\n".join(filter(None, [e_text, da_text, v_text, o_text])) + "\n\nEND"
+    assembled = "\n\n".join(filter(None, [e_text, d_text, v_text, o_text])) + "\n\nEND"
 
     credits = {
-        'eligibility_model':   _model_name(e_model)  if e_model  else 'N/A',
-        'development_model':   _model_name(da_model) if da_model else 'N/A',
-        'development_b_model': _model_name(db_model) if db_model else 'N/A',
-        'verification_model':  _model_name(v_model)  if v_model  else 'N/A',
-        'opportunities_model': _model_name(o_model)  if o_model  else 'N/A',
-        'dev_b_text':          db_text               if db_text  else '',
+        'eligibility_model':  _model_name(e_model) if e_model else 'N/A',
+        'development_model':  _model_name(d_model) if d_model else 'N/A',
+        'verification_model': _model_name(v_model) if v_model else 'N/A',
+        'opportunities_model':_model_name(o_model) if o_model else 'N/A',
     }
     print(
         f" Council complete — "
         f"Eligibility:{credits['eligibility_model']} | "
-        f"Dev-A:{credits['development_model']} | "
-        f"Dev-B:{credits['development_b_model']} | "
+        f"Development:{credits['development_model']} | "
         f"Verification:{credits['verification_model']} | "
         f"Opportunities:{credits['opportunities_model']}"
     )
@@ -930,6 +1028,7 @@ def parse_vsc_analysis(raw, credits=None):
     missing_req    = extract_block('MISSING_REQUIREMENTS', raw)
     verification   = extract_block('VERIFICATION_REQUIRED', raw)
     improvements   = extract_block('IMPROVEMENTS', raw)
+    ats_keywords   = extract_block('ATS_KEYWORDS', raw)
     ats_resume     = extract_block('RESUME_REWRITE', raw)
 
     loc_block = extract_block('LOCATION', raw)
@@ -957,6 +1056,7 @@ def parse_vsc_analysis(raw, credits=None):
         'missing_requirements':  missing_req,
         'verification_required': verification or 'None — candidate meets all stated requirements.',
         'improvements':          improvements,
+        'ats_keywords':          ats_keywords,
         'ats_resume':            ats_resume,
         'recommendation':        f"{eligibility} — {classification}",
     }
@@ -972,21 +1072,13 @@ def parse_vsc_analysis(raw, credits=None):
         parsed[f'alt_{i}_score']    = _get(r'^Score:\s*(.+)')
         parsed[f'alt_{i}_why']      = _get(r'^Why:\s*(.+)')
 
-    # Extract Option B improvements and rewrite from Dev-B track
-    dev_b_raw = (credits or {}).get('dev_b_text', '')
-    parsed['improvements_b'] = extract_block('IMPROVEMENTS', dev_b_raw) if dev_b_raw else ''
-    parsed['ats_resume_b']   = extract_block('RESUME_REWRITE', dev_b_raw) if dev_b_raw else ''
-    if dev_b_raw and not parsed['improvements_b']:
-        print(f"  Dev-B parse miss — raw starts: {dev_b_raw[:120]!r}")
-
-    parsed.update({k: v for k, v in (credits or {}).items() if k != 'dev_b_text'})
+    parsed.update(credits or {})
     if not credits:
         parsed.update({
-            'eligibility_model':   'N/A',
-            'development_model':   'N/A',
-            'development_b_model': 'N/A',
-            'verification_model':  'N/A',
-            'opportunities_model': 'N/A',
+            'eligibility_model':  'N/A',
+            'development_model':  'N/A',
+            'verification_model': 'N/A',
+            'opportunities_model':'N/A',
         })
     return parsed
 
@@ -2205,6 +2297,7 @@ def powerautomate_webhook():
                     'missing_requirements':  parsed.get('missing_requirements', ''),
                     'verification_required': parsed.get('verification_required', ''),
                     'improvements':          parsed.get('improvements', ''),
+                    'ats_keywords':          parsed.get('ats_keywords', ''),
                     'ats_resume':            parsed.get('ats_resume', ''),
                     'candidate_city':        candidate_city,
                     'alt_1_title':           parsed.get('alt_1_title', ''),
@@ -2222,13 +2315,10 @@ def powerautomate_webhook():
                     'alt_3_distance':        parsed.get('alt_3_distance', ''),
                     'alt_3_score':           parsed.get('alt_3_score', ''),
                     'alt_3_why':             parsed.get('alt_3_why', ''),
-                    'eligibility_model':     parsed.get('eligibility_model',   'N/A'),
-                    'development_model':     parsed.get('development_model',   'N/A'),
-                    'development_b_model':   parsed.get('development_b_model', 'N/A'),
-                    'verification_model':    parsed.get('verification_model',  'N/A'),
-                    'opportunities_model':   parsed.get('opportunities_model', 'N/A'),
-                    'improvements_b':        parsed.get('improvements_b', '') or '[Option B did not return output — Option A above is the primary recommendation]',
-                    'ats_resume_b':          parsed.get('ats_resume_b',   '') or '[Option B rewrite not available — use Option A above]',
+                    'eligibility_model':     parsed.get('eligibility_model',  'N/A'),
+                    'development_model':     parsed.get('development_model',  'N/A'),
+                    'verification_model':    parsed.get('verification_model', 'N/A'),
+                    'opportunities_model':   parsed.get('opportunities_model','N/A'),
                 })
                 _graph_send_email(
                     to_addr  = vsc_email,

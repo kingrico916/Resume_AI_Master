@@ -241,12 +241,11 @@ Work for Warriors"""
             "eligibility", "requirements",
             "primary_grade", "true_fit_grade", "shadow_grade", "classification",
             "justification", "missing_requirements", "verification_required",
-            "improvements", "ats_resume", "candidate_city",
+            "improvements", "ats_keywords", "ats_resume", "candidate_city",
             "alt_1_title", "alt_1_company", "alt_1_distance", "alt_1_score", "alt_1_why",
             "alt_2_title", "alt_2_company", "alt_2_distance", "alt_2_score", "alt_2_why",
             "alt_3_title", "alt_3_company", "alt_3_distance", "alt_3_score", "alt_3_why",
-            "eligibility_model", "development_model", "development_b_model", "verification_model", "opportunities_model",
-            "improvements_b", "ats_resume_b",
+            "eligibility_model", "development_model", "verification_model", "opportunities_model",
         ],
         "subject": "AWIS Report — {candidate_name} | {job_title} | {eligibility} | Grade: {primary_grade}",
         "body": """AWIS RESUME ANALYSIS REPORT — v4.0
@@ -286,24 +285,19 @@ VERIFICATION REQUIRED — VSC OUTREACH QUESTIONS      [{verification_model}]
 {verification_required}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-RESUME IMPROVEMENTS — OPTION A          [{development_model}]
+ATS KEYWORDS — EXTRACTED FROM JOB POSTING   [{development_model}]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{ats_keywords}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RESUME IMPROVEMENTS                     [{development_model}]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {improvements}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-RESUME IMPROVEMENTS — OPTION B          [{development_b_model}]
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-{improvements_b}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ATS-OPTIMIZED RESUME REWRITE — OPTION A [{development_model}]
+ATS-OPTIMIZED RESUME REWRITE            [{development_model}]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {ats_resume}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ATS-OPTIMIZED RESUME REWRITE — OPTION B [{development_b_model}]
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-{ats_resume_b}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ADDITIONAL OPPORTUNITIES — {candidate_city} AREA    [{opportunities_model}]
