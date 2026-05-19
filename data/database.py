@@ -15,7 +15,8 @@ import sqlite3
 import os
 from datetime import datetime, timedelta
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "awis.db")
+_DEFAULT_DB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "awis.db")
+DB_PATH = os.getenv("AWIS_DB_PATH", _DEFAULT_DB)
 
 # ── Pipeline ──────────────────────────────────────────────────────────────────
 

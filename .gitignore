@@ -1,8 +1,9 @@
 # Environment & secrets
 .env
 
-# Database (local dev only — use Railway volume in production)
+# Databases (local dev only — persisted on Azure /home/awis_data/ in production)
 data/awis.db
+data/jobs.db
 
 # Python
 __pycache__/
