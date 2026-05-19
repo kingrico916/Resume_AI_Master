@@ -3,7 +3,7 @@ Resume AI Master - Work for Warriors
 Flask application for resume analysis with job matching and CalCareers packaging.
 """
 
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for
 import requests
 import os
 from dotenv import load_dotenv
