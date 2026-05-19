@@ -769,13 +769,16 @@ RESUME:
 
 ELIGIBILITY RULES:
 SUITABLE = all requirements CONFIRMED → recommend submission
-PENDING REVIEW = any NOT_PROVIDED, nothing definitively disqualifying → verify first
-NOT SUITABLE — FINAL = any NOT_MET, or candidate grades D/F even if all gaps resolved
+PENDING REVIEW = any requirement NOT_PROVIDED or NOT_MET → VSC must verify before deciding
+NOT SUITABLE — FINAL = candidate is actively, provably disqualified — use ONLY when the resume
+  explicitly contradicts a hard requirement (e.g. requires CA license, resume states licensed in TX only;
+  requires 5 years experience, resume shows 6 months). A missing item alone is NEVER grounds for
+  NOT SUITABLE — FINAL. When in doubt, use PENDING REVIEW.
 
 GRADING RULES:
 TRUE_FIT_GRADE = pure resume-to-job match (A+/A/A-/B+/B/B-/C/D/F)
 PRIMARY_GRADE: SUITABLE→same as TRUE FIT | PENDING REVIEW→cap at B | NOT SUITABLE FINAL→F
-SHADOW_GRADE: what candidate scores if all NOT_PROVIDED confirmed | N/A if SUITABLE
+SHADOW_GRADE: what candidate scores if all gaps confirmed | N/A if SUITABLE
 
 OUTPUT — EXACT FORMAT ONLY:
 ELIGIBILITY: [SUITABLE | PENDING REVIEW | NOT SUITABLE — FINAL]
