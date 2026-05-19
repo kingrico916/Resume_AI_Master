@@ -285,7 +285,7 @@ VERIFICATION REQUIRED — VSC OUTREACH QUESTIONS      [{verification_model}]
 {verification_required}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ATS KEYWORDS — EXTRACTED FROM JOB POSTING   [{development_model}]
+KEY TERMS — FROM JOB POSTING            [{development_model}]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {ats_keywords}
 

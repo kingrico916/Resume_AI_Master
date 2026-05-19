@@ -809,14 +809,14 @@ RULES:
 - Use the rank crosswalk and any MOS translations above to reframe military titles and roles.
 - Resume rewrite must fit one page. Prioritize relevance to the target job.
 
-STEP 1 — Extract ATS keywords from the job description above.
-Identify 10-15 specific terms the employer's ATS will scan for: required skills, certifications, tools, job-specific phrases, and action verbs from the posting.
+STEP 1 — Extract key terms from the job description above.
+Identify 10-15 specific terms the employer used: required skills, certifications, tools, job-specific phrases, and action verbs directly from the posting. These are the employer's own words — not guesses about what a system scans for.
 
-STEP 2 — Write the resume using those keywords naturally integrated wherever the candidate's actual experience supports them.
+STEP 2 — Write the resume using those terms naturally integrated wherever the candidate's actual experience supports them.
 
 OUTPUT — EXACT FORMAT ONLY:
 ATS_KEYWORDS:
-[comma-separated list of 10-15 keywords from the job description]
+[comma-separated list of 10-15 key terms taken directly from the job description]
 
 JUSTIFICATION:
 - [bullet: how candidate's background aligns to this specific role]
