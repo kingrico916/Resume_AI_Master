@@ -96,7 +96,8 @@ OUTLOOK_PASSWORD    = os.getenv("OUTLOOK_PASSWORD", "")
 GRAPH_TENANT_ID     = os.getenv("GRAPH_TENANT_ID", "")
 GRAPH_CLIENT_ID     = os.getenv("GRAPH_CLIENT_ID", "")
 GRAPH_CLIENT_SECRET = os.getenv("GRAPH_CLIENT_SECRET", "")
-RYAN_EMAIL          = "ryan.mcgrath@workforwarriors.org"
+RYAN_EMAIL          = os.getenv("RYAN_EMAIL", "ryan.mcgrath@workforwarriors.org")
+VSC_DISPLAY_NAME    = os.getenv("VSC_DISPLAY_NAME", "VSC")
 
 
 # ── Microsoft Graph API helpers ───────────────────────────────────────────────
@@ -618,7 +619,7 @@ Salary: [range]
         }
         
         data = {
-            "model": "moonshotai/kimi-k2.6",
+            "model": "moonshotai/kimi-k2:free",
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": 4000
         }
@@ -647,11 +648,92 @@ def quick_extract_location(resume_text):
     return None, None
 
 
+# Degree hierarchy: higher index = higher credential
+_DEGREE_LEVELS = [
+    (3, 'HS Diploma/GED', [
+        r'high school diploma', r'high school degree', r'hs diploma', r'h\.s\. diploma',
+        r'\bged\b', r'g\.e\.d', r'high school graduate', r'secondary education',
+    ]),
+    (4, "Associate's", [
+        r"associate'?s?\b", r'\ba\.s\.', r'\ba\.a\.', r'associate of \w', r'associate degree',
+        r'2.year degree', r'two.year degree',
+    ]),
+    (5, "Bachelor's", [
+        r"bachelor'?s?\b", r'\bb\.s\.', r'\bb\.a\.', r'\bbba\b', r'\bbfa\b',
+        r'bachelor of \w', r'undergraduate degree', r'4.year degree', r'four.year degree',
+    ]),
+    (6, "Master's", [
+        r"master'?s?\b", r'\bm\.s\.', r'\bm\.a\.', r'\bmba\b', r'\bmpa\b',
+        r'\bmsw\b', r'\bmph\b', r'\bm\.ed\.?', r'master of \w', r'graduate degree',
+        r'post.?graduate', r'postgraduate',
+    ]),
+    (7, 'PhD/Doctorate', [
+        r'\bph\.?d\.?\b', r'\bdoctorate\b', r'\bdoctoral\b', r'\bd\.phil\.?\b',
+    ]),
+]
+
+
+def _highest_degree_in(text):
+    """Return (level, label) of highest degree credential found in text. Level 0 = none found."""
+    t = text.lower()
+    for level, label, patterns in reversed(_DEGREE_LEVELS):
+        for p in patterns:
+            if re.search(p, t):
+                return level, label
+    return 0, None
+
+
+def check_education_requirement(resume_text, qualifications_text):
+    """
+    Deterministically compare the degree required by the job against the highest
+    degree held by the candidate. Returns an injection block string for AI prompts,
+    or None if no degree requirement is detected.
+    """
+    required_level, required_label = _highest_degree_in(qualifications_text or '')
+    if required_level == 0:
+        return None  # no degree requirement detected — nothing to inject
+
+    resume_level, resume_label = _highest_degree_in(resume_text or '')
+
+    if resume_level == 0:
+        verdict = 'UNVERIFIED'
+        detail  = (
+            f"No degree credential detected in resume text. "
+            f"If the resume shows U.S. military service the HS/GED rule applies. "
+            f"Otherwise treat as NOT_PROVIDED."
+        )
+    elif resume_level >= required_level:
+        verdict = 'CONFIRMED'
+        detail  = (
+            f"Candidate holds {resume_label} (level {resume_level}), "
+            f"which meets or exceeds the required {required_label} (level {required_level}). "
+            f"Mark the education requirement CONFIRMED — do not override this."
+        )
+    else:
+        verdict = 'POTENTIAL_GAP'
+        detail  = (
+            f"Candidate's highest detected credential is {resume_label} (level {resume_level}), "
+            f"below the required {required_label} (level {required_level}). "
+            f"Treat as NOT_PROVIDED unless the resume body contains evidence otherwise."
+        )
+
+    return (
+        f"DETERMINISTIC EDUCATION PRE-CHECK (Python-verified — ground truth, do not override):\n"
+        f"  Required degree:   {required_label}\n"
+        f"  Candidate holds:   {resume_label or 'not detected'}\n"
+        f"  Verdict:           {verdict}\n"
+        f"  {detail}\n"
+    )
+
+
 _MODEL_DISPLAY = {
-    "openai/gpt-oss-120b:free":                 "GPT-OSS 120B",
-    "openai/gpt-oss-20b:free":                  "GPT-OSS 20B",
-    "nvidia/nemotron-3-super-120b-a12b:free":   "Nemotron 120B",
-    "moonshotai/kimi-k2:free":                  "Kimi K2",
+    "moonshotai/kimi-k2:free":              "Kimi K2",
+    "deepseek/deepseek-chat-v3-0324:free":  "DeepSeek V3",
+    "deepseek/deepseek-v4-flash:free":      "DeepSeek V4 Flash",
+    "google/gemma-4-31b-it:free":           "Gemma 4 31B",
+    "google/gemma-4-26b-a4b-it:free":       "Gemma 4 26B",
+    "meta-llama/llama-4-scout:free":        "Llama 4 Scout",
+    "qwen/qwen3-235b-a22b:free":            "Qwen3 235B",
 }
 
 def _model_name(model_id):
@@ -732,7 +814,11 @@ def analyze_for_vsc(resume_text, candidate_name, target_job, alternative_jobs):
     job_desc       = target_job.get('Job Description', 'Not provided')
     qualifications = target_job.get('Qualifications', 'Not provided')
 
-    # ── Track 1: Eligibility (GPT-OSS 120B → Nemotron) ───────────────────────
+    # Deterministic education check — injected into T1 and T3 as ground truth
+    edu_pre_check = check_education_requirement(resume_text, qualifications)
+    edu_block = f"\n{edu_pre_check}\n" if edu_pre_check else ""
+
+    # ── Track 1: Eligibility ──────────────────────────────────────────────────
     t1 = f"""You are a veteran employment eligibility analyst for Work for Warriors.
 
 RULES: Do NOT fabricate qualifications. Do NOT assume missing data. Job description is the source of truth.
@@ -766,7 +852,7 @@ JOB DESCRIPTION: {job_desc}
 REQUIRED QUALIFICATIONS: {qualifications}
 RESUME:
 {resume_text}
-
+{edu_block}
 ELIGIBILITY RULES:
 SUITABLE = all requirements CONFIRMED → recommend submission
 PENDING REVIEW = any requirement NOT_PROVIDED or NOT_MET → VSC must verify before deciding
@@ -850,7 +936,7 @@ JOB: {job_title} at {company}
 REQUIRED QUALIFICATIONS: {qualifications}
 RESUME:
 {resume_text}
-
+{edu_block}
 RULES — READ CAREFULLY:
 - A requirement is CONFIRMED if the resume shows it directly OR through equivalent demonstrated experience.
   Example: "sensitivity to behavioral health populations" is CONFIRMED if the resume shows caregiving for mentally ill patients.
@@ -966,22 +1052,22 @@ END"""
     threads = [
         threading.Thread(target=run_track, args=(
             'eligibility',
-            ["openai/gpt-oss-120b:free", "nvidia/nemotron-3-super-120b-a12b:free"],
+            ["moonshotai/kimi-k2:free", "deepseek/deepseek-chat-v3-0324:free", "qwen/qwen3-235b-a22b:free", "google/gemma-4-31b-it:free"],
             t1, 800
         ), daemon=True),
         threading.Thread(target=run_track, args=(
             'development',
-            ["nvidia/nemotron-3-super-120b-a12b:free", "openai/gpt-oss-120b:free"],
+            ["moonshotai/kimi-k2:free", "google/gemma-4-31b-it:free", "deepseek/deepseek-chat-v3-0324:free", "qwen/qwen3-235b-a22b:free"],
             t2, 3200
         ), daemon=True),
         threading.Thread(target=run_track, args=(
             'verification',
-            ["openai/gpt-oss-120b:free", "nvidia/nemotron-3-super-120b-a12b:free"],
+            ["moonshotai/kimi-k2:free", "qwen/qwen3-235b-a22b:free", "meta-llama/llama-4-scout:free", "google/gemma-4-26b-a4b-it:free"],
             t3, 600
         ), daemon=True),
         threading.Thread(target=run_track, args=(
             'opportunities',
-            ["openai/gpt-oss-120b:free", "nvidia/nemotron-3-super-120b-a12b:free"],
+            ["moonshotai/kimi-k2:free", "meta-llama/llama-4-scout:free", "deepseek/deepseek-chat-v3-0324:free", "deepseek/deepseek-v4-flash:free"],
             t4, 900
         ), daemon=True),
     ]
@@ -2107,13 +2193,13 @@ def intake_submissions():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/powerautomate', methods=['POST'])
-def powerautomate_webhook():
+@app.route('/api/intake/process', methods=['POST'])
+def intake_process():
     """
-    Power Automate webhook  primary automated intake endpoint.
+    Primary automated intake endpoint.
 
-    Called when a SJB application email arrives in a VSC inbox.
-    Power Automate sends:
+    Called by the inbox poller when a SJB application email arrives.
+    Accepts:
         resume_text       full resume as plain text (required)
         subject_line      raw email subject, e.g. "Application for Data Analyst"
         job_title         parsed job title (optional if subject_line provided)
@@ -2407,11 +2493,11 @@ def powerautomate_webhook():
         })
 
     except Exception as e:
-        print(f" Power Automate webhook error: {e}")
+        print(f" Intake process error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-#  Engagement API 
+#  Engagement API
 
 @app.route('/api/candidates/<int:cid>/engagements', methods=['GET'])
 @api_login_required
@@ -2595,7 +2681,7 @@ def run_folder_watcher():
 # ── Graph API Inbox Poller ────────────────────────────────────────────────────
 # Watches the VSC inbox via Microsoft Graph (modern auth — no IMAP/Basic Auth).
 # Every 5 minutes, finds unread "Application for" emails and feeds them
-# through the /api/powerautomate pipeline.
+# through the /api/intake/process pipeline.
 
 INBOX_POLL_INTERVAL = 300  # seconds
 
@@ -2638,13 +2724,13 @@ def _process_inbox_message(token, msg):
         "candidate_name":  candidate_name,
         "candidate_email": candidate_email_addr,
         "candidate_phone": "",
-        "vsc_name":        "Work for Warriors",
+        "vsc_name":        VSC_DISPLAY_NAME,
         "vsc_email":       OUTLOOK_USER,
     }
     success = False
     try:
         r = requests.post(
-            "http://127.0.0.1:5001/api/powerautomate",
+            "http://127.0.0.1:5001/api/intake/process",
             json=payload,
             timeout=300,
         )

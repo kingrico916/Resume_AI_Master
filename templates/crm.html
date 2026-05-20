@@ -439,13 +439,13 @@
             <input type="text" id="vscFilter" placeholder="Filter by your name..." style="width:200px;"
                    oninput="applyFilters()">
             <button class="btn btn-primary" onclick="openAddModal()">+ Add Candidate</button>
+            <button class="btn btn-secondary" onclick="toggleSelectMode()" id="selectToggleBtn">Select</button>
         </div>
     </div>
 
     <!-- Controls -->
     <div class="controls">
         <input type="text" id="searchInput" placeholder="Search candidates..." oninput="applyFilters()">
-        <button class="btn btn-secondary btn-sm" onclick="toggleSelectMode()" id="selectToggleBtn">Select</button>
     </div>
 
     <!-- Bulk action bar (visible in select mode) -->
