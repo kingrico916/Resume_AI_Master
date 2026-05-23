@@ -2456,38 +2456,39 @@ def run_ghost_check():
     Emails each VSC a reminder for each stale candidate.
     Runs daily in a background thread.
     """
-    with app.app_context():
-        try:
-            stale = get_candidates_needing_followup(days=7)
-            if not stale:
-                print(" Ghost check: no stale candidates")
-                return
+    try:
+        with app.app_context():
+            try:
+                stale = get_candidates_needing_followup(days=7)
+                if not stale:
+                    print(" Ghost check: no stale candidates")
+                    return
 
-            print(f" Ghost check: {len(stale)} candidates need follow-up")
+                print(f" Ghost check: {len(stale)} candidates need follow-up")
 
-            if not OUTLOOK_PASSWORD:
-                print("  Ghost check: email not configured, skipping notifications")
-                return
+                if not OUTLOOK_PASSWORD:
+                    print("  Ghost check: email not configured, skipping notifications")
+                    return
 
-            # Group by VSC
-            by_vsc = {}
-            for c in stale:
-                vsc = c.get('vsc_name', 'VSC')
-                by_vsc.setdefault(vsc, []).append(c)
+                # Group by VSC
+                by_vsc = {}
+                for c in stale:
+                    vsc = c.get('vsc_name', 'VSC')
+                    by_vsc.setdefault(vsc, []).append(c)
 
-            for vsc_name, candidates in by_vsc.items():
-                lines = []
-                for c in candidates:
-                    last = c.get('last_engagement_at', 'Never')
-                    lines.append(
-                        f"   {c['first_name']} {c['last_name']} "
-                        f"| Stage: {STAGE_LABELS.get(c['stage'], c['stage'])} "
-                        f"| Last engagement: {last[:10] if last and last != 'Never' else 'Never'} "
-                        f"| Email: {c.get('email', 'N/A')}"
-                    )
+                for vsc_name, candidates in by_vsc.items():
+                    lines = []
+                    for c in candidates:
+                        last = c.get('last_engagement_at', 'Never')
+                        lines.append(
+                            f"   {c['first_name']} {c['last_name']} "
+                            f"| Stage: {STAGE_LABELS.get(c['stage'], c['stage'])} "
+                            f"| Last engagement: {last[:10] if last and last != 'Never' else 'Never'} "
+                            f"| Email: {c.get('email', 'N/A')}"
+                        )
 
-                subject = f"Follow-Up Required  {len(candidates)} Candidate{'s' if len(candidates) > 1 else ''} Awaiting Contact"
-                body = f"""FOLLOW-UP REMINDER
+                    subject = f"Follow-Up Required  {len(candidates)} Candidate{'s' if len(candidates) > 1 else ''} Awaiting Contact"
+                    body = f"""FOLLOW-UP REMINDER
 Work for Warriors  Automated Alert
 
 {len(candidates)} candidate{'s have' if len(candidates) > 1 else ' has'} had no engagement in 7 or more days.
@@ -2499,27 +2500,27 @@ Log in to your CRM to review and take action.
 ---
 Work for Warriors Resume AI  Automated Notification"""
 
-                try:
-                    msg = MIMEMultipart()
-                    msg['From']    = f'Work for Warriors AI <{OUTLOOK_USER}>'
-                    msg['To']      = OUTLOOK_USER  # VSC email would go here when per-VSC emails are configured
-                    msg['Subject'] = subject
-                    msg.attach(MIMEText(body, 'plain'))
+                    try:
+                        msg = MIMEMultipart()
+                        msg['From']    = f'Work for Warriors AI <{OUTLOOK_USER}>'
+                        msg['To']      = OUTLOOK_USER  # VSC email would go here when per-VSC emails are configured
+                        msg['Subject'] = subject
+                        msg.attach(MIMEText(body, 'plain'))
 
-                    with smtplib.SMTP('smtp.office365.com', 587) as server:
-                        server.ehlo()
-                        server.starttls()
-                        server.login(OUTLOOK_USER, OUTLOOK_PASSWORD)
-                        server.send_message(msg)
-                    print(f" Ghost reminder sent for {vsc_name}: {len(candidates)} candidates")
-                except Exception as e:
-                    print(f"  Ghost reminder email failed for {vsc_name}: {e}")
+                        with smtplib.SMTP('smtp.office365.com', 587) as server:
+                            server.ehlo()
+                            server.starttls()
+                            server.login(OUTLOOK_USER, OUTLOOK_PASSWORD)
+                            server.send_message(msg)
+                        print(f" Ghost reminder sent for {vsc_name}: {len(candidates)} candidates")
+                    except Exception as e:
+                        print(f"  Ghost reminder email failed for {vsc_name}: {e}")
 
-        except Exception as e:
-            print(f" Ghost check error: {e}")
-
-    # Schedule next run in 24 hours
-    threading.Timer(86400, run_ghost_check).start()
+            except Exception as e:
+                print(f" Ghost check error: {e}")
+    finally:
+        # Schedule next run in 24 hours — always, even if no stale candidates or email not configured
+        threading.Timer(86400, run_ghost_check).start()
 
 
 @app.route('/api/ghost_check', methods=['POST'])
@@ -2724,6 +2725,6 @@ if __name__ == '__main__':
     )
     threading.Timer(15,  run_folder_watcher).start()  # 15s — fast, just watches a directory
     threading.Timer(60,  run_inbox_poll).start()       # 60s — give Flask time to be fully ready
-    threading.Timer(120, run_ghost_check).start()      # 2min — send after inbox poll, not before
+    threading.Timer(5,   run_ghost_check).start()      # 5s — independent of inbox poll, runs daily
 
     app.run(host='0.0.0.0', port=5001, debug=True, use_reloader=False)
