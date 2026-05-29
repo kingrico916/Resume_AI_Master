@@ -725,6 +725,22 @@ def get_all_active_jobs(limit: int = 500) -> list:
     return rows
 
 
+def get_remote_jobs(limit: int = 100) -> list:
+    """Return active jobs with 'remote' in the title."""
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("""
+        SELECT * FROM job_listings
+        WHERE is_active = 1
+          AND LOWER(job_title) LIKE '%remote%'
+        ORDER BY job_title ASC
+        LIMIT ?
+    """, (limit,))
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+
 def load_jobs_to_memory() -> list:
     """Return all active jobs as list of dicts for JOBS_DB in-memory cache."""
     conn = get_connection()

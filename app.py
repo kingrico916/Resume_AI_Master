@@ -36,7 +36,7 @@ from data.database import (
     create_candidate, get_candidates, get_candidate, update_candidate,
     delete_candidate, get_pipeline_counts, add_submission,
     get_submissions, update_submission,
-    save_jobs, get_jobs_near, get_job_by_id, get_job_by_title, get_all_active_jobs,
+    save_jobs, get_jobs_near, get_remote_jobs, get_job_by_id, get_job_by_title, get_all_active_jobs,
     load_jobs_to_memory, get_intake_submissions,
     log_engagement, get_engagements, get_candidates_needing_followup,
     save_custom_template, get_custom_templates, delete_custom_template,
@@ -1327,28 +1327,34 @@ END"""
     # ── Track 4: Opportunities (GPT-OSS 120B → Nemotron) ─────────────────────
     # Pull a brief career summary from the resume header for relevance filtering
     resume_header = resume_text[:800]
+    _target_is_remote = 'remote' in (job_title + ' ' + job_desc[:200]).lower()
+    _scoring_rule = (
+        "Score each alternative on fit only (skills/experience match × 100%). "
+        "Proximity does not apply — these are remote positions."
+        if _target_is_remote else
+        "Score each on fit (skills/experience match × 70% + proximity × 30%). "
+        "Distance tiers: IDEAL under 15mi | ACCEPTABLE 15-30mi | BORDERLINE 30-50mi"
+    )
+    _alt_list_label = "REMOTE JOBS LIST" if _target_is_remote else "NEARBY JOBS LIST"
+
     t4 = f"""You are a veteran job placement specialist for Work for Warriors.
 
 CANDIDATE: {candidate_name}
 RESUME HEADER (for career context):
 {resume_header}
 
-TARGET JOB: {job_title} at {company}
-TARGET JOB LOCATION: {job_city}, {job_state}
+TARGET JOB: {job_title} at {company}{"  [REMOTE]" if _target_is_remote else f" — {job_city}, {job_state}"}
 
-NEARBY JOBS LIST:
+{_alt_list_label}:
 {alt_jobs_text}
 
 TASK:
 1. Extract candidate city/state from the resume header.
-2. From the nearby jobs list, select the 3 best ALTERNATIVE jobs. Each alternative must:
+2. From the list above, select the 3 best ALTERNATIVE jobs. Each alternative must:
    - Match the candidate's background, skills, and experience level as shown in the resume
    - Exclude the target job itself ({job_title} at {company})
-   - Be within a reasonable commute distance
    - Represent a realistic fit — not a career change into an unrelated field
-3. Score each on fit (skills/experience match × 70% + proximity × 30%).
-
-Distance tiers: IDEAL under 15mi | ACCEPTABLE 15-30mi | BORDERLINE 30-50mi
+3. {_scoring_rule}
 
 OUTPUT — EXACT FORMAT ONLY:
 LOCATION:
@@ -2887,35 +2893,36 @@ def intake_process():
                 'action':       'Upload updated CSV at /manual, then reprocess manually',
             }), 202
 
-        #  Step 2: Resolve candidate location for geosync
-        # Use pre-extracted values from payload (body + resume pass) first;
-        # fall back to resume-only quick extract when payload is blank.
+        #  Step 2: Resolve alternative jobs pool
+        # If the target job is remote, pull remote alternatives — proximity is irrelevant.
+        # If the target job is in-person, use geosync near the candidate's location.
         city  = candidate_city_in  or ''
         state = candidate_state_in or ''
         if not city or not state:
             city, state = quick_extract_location(resume_text)
-        alt_jobs = []
-        if city and state:
-            cand_lat, cand_lon = geocode_location(city, state)
-            if cand_lat:
-                db_nearby = get_jobs_near(cand_lat, cand_lon, radius_miles=50)
-                alt_jobs = [{
-                    'Job Title':    j.get('job_title', ''),
-                    'Company Name': j.get('company_name', ''),
-                    'City':         j.get('city', ''),
-                    'State':        j.get('state', ''),
-                    'distance':     round(j.get('distance_miles', 0), 1),
-                } for j in db_nearby]
-                print(f" Geosync: {len(alt_jobs)} jobs within 50mi of {city}, {state}")
 
-        # Fall back to job location when candidate location unavailable
-        if not alt_jobs:
-            job_city  = target_job.get('City', '')
-            job_state = target_job.get('State', '')
-            if job_city and job_state:
-                job_lat, job_lon = geocode_location(job_city, job_state)
-                if job_lat:
-                    db_nearby = get_jobs_near(job_lat, job_lon, radius_miles=50)
+        _target_title = target_job.get('Job Title', '') + ' ' + target_job.get('job_title', '')
+        _is_remote    = 'remote' in _target_title.lower()
+
+        alt_jobs = []
+
+        if _is_remote:
+            # Remote job — pull remote alternatives from the DB
+            remote_pool = get_remote_jobs(limit=100)
+            alt_jobs = [{
+                'Job Title':    j.get('job_title', ''),
+                'Company Name': j.get('company_name', ''),
+                'City':         j.get('city', 'Remote'),
+                'State':        j.get('state', ''),
+                'distance':     0,
+            } for j in remote_pool if j.get('job_title', '').lower() != target_job.get('Job Title', '').lower()]
+            print(f" Remote job detected — {len(alt_jobs)} remote alternatives")
+        else:
+            # In-person job — geosync near candidate location
+            if city and state:
+                cand_lat, cand_lon = geocode_location(city, state)
+                if cand_lat:
+                    db_nearby = get_jobs_near(cand_lat, cand_lon, radius_miles=50)
                     alt_jobs = [{
                         'Job Title':    j.get('job_title', ''),
                         'Company Name': j.get('company_name', ''),
@@ -2923,7 +2930,24 @@ def intake_process():
                         'State':        j.get('state', ''),
                         'distance':     round(j.get('distance_miles', 0), 1),
                     } for j in db_nearby]
-                    print(f" Geosync: job location fallback ({job_city}) — {len(alt_jobs)} nearby alternatives")
+                    print(f" Geosync: {len(alt_jobs)} jobs within 50mi of {city}, {state}")
+
+            # Fall back to job location if candidate location unavailable
+            if not alt_jobs:
+                job_city  = target_job.get('City', '')
+                job_state = target_job.get('State', '')
+                if job_city and job_state:
+                    job_lat, job_lon = geocode_location(job_city, job_state)
+                    if job_lat:
+                        db_nearby = get_jobs_near(job_lat, job_lon, radius_miles=50)
+                        alt_jobs = [{
+                            'Job Title':    j.get('job_title', ''),
+                            'Company Name': j.get('company_name', ''),
+                            'City':         j.get('city', ''),
+                            'State':        j.get('state', ''),
+                            'distance':     round(j.get('distance_miles', 0), 1),
+                        } for j in db_nearby]
+                        print(f" Geosync: job location fallback ({job_city}) — {len(alt_jobs)} nearby alternatives")
 
         if not alt_jobs:
             alt_jobs = list(JOBS_DB[:50])
