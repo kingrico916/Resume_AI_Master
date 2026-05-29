@@ -1246,11 +1246,13 @@ END"""
 
 RULES:
 - No fabrication. Never invent experience, credentials, or metrics not in the original resume.
+- The Professional Summary must ONLY claim expertise explicitly demonstrated in the resume. Never add domain names, system names, or specializations (e.g. HCM, ERP, Workday, SAP) that do not appear in the original resume.
 - Quantify only what the resume already supports. If a number isn't there, don't add one.
+- ALWAYS include the candidate's most recent/current employer as the first entry under Professional Experience. Never drop it.
 - Translate all military jargon to civilian language (e.g. "deployed" → "mobilized", "TDY" → "temporary assignment").
 - Use the rank crosswalk and MOS translations to reframe military titles and roles.
-- Resume must fit one page. Prioritize relevance to the target job.
-- Integrate the employer's own key terms naturally where the candidate's experience supports them.
+- Keep the resume concise. Prioritize the most recent 10 years and most relevant experience. Do not cut the current employer to save space.
+- Integrate the employer's own key terms naturally where the candidate's experience already supports them.
 
 OUTPUT — EXACT FORMAT ONLY:
 RESUME_REWRITE:
@@ -1512,24 +1514,41 @@ def parse_vsc_analysis(raw, credits=None):
     city          = loc_parts[0].strip() if loc_parts else 'Unknown'
     state         = loc_parts[1].strip() if len(loc_parts) > 1 else ''
 
-    # Post-process: strip from missing/verification anything Track 1 already confirmed.
-    # Extracts significant words from CONFIRMED lines in requirements, then removes
-    # any missing/verification line that shares 2+ of those words.
-    if requirements and missing_req:
-        confirmed_kw = set()
-        for line in requirements.splitlines():
-            if 'CONFIRMED' in line.upper():
-                req_part = re.split(r'[—–]', line)[0].strip().lower()
-                confirmed_kw.update(w for w in re.findall(r'[a-z]{4,}', req_part))
-        if confirmed_kw:
-            def _about_confirmed(line):
-                ll = line.lower()
-                return sum(1 for kw in confirmed_kw if kw in ll) >= 2
-            missing_lines = [l for l in missing_req.splitlines() if not _about_confirmed(l)]
-            missing_req = '\n'.join(missing_lines).strip() or 'None — all listed requirements confirmed or under review.'
-            if verification:
-                verif_lines = [l for l in verification.splitlines() if not _about_confirmed(l)]
-                verification = '\n'.join(verif_lines).strip()
+    # ── Post-process: enforce eligibility rules deterministically ────────────
+    # 1. If requirements contain any NOT_PROVIDED or NOT_MET, force PENDING REVIEW.
+    #    The AI sometimes says SUITABLE despite gaps — override it.
+    if requirements and re.search(r'\bNOT_PROVIDED\b|\bNOT_MET\b', requirements, re.IGNORECASE):
+        if eligibility.upper() == 'SUITABLE':
+            eligibility = 'PENDING REVIEW'
+            # Cap primary grade at B if it was higher
+            _grade_order = ['A+','A','A-','B+','B','B-','C','D','F']
+            try:
+                if _grade_order.index(primary_grade) < _grade_order.index('B'):
+                    primary_grade = 'B'
+            except ValueError:
+                pass
+
+    # 2. Shadow grade is N/A when SUITABLE — clear it.
+    if eligibility.upper() == 'SUITABLE':
+        shadow_grade = ''
+
+    # 3. Enforce classification consistency with eligibility.
+    _elig = eligibility.upper()
+    _cls  = (classification or '').upper()
+    if 'NOT SUITABLE' in _elig:
+        if 'NON' not in _cls and 'VIABLE' not in _cls:
+            classification = 'Non-viable'
+    elif 'PENDING REVIEW' in _elig:
+        if 'DEVELOP' not in _cls and 'NON' not in _cls:
+            classification = 'Develop'
+    elif _elig == 'SUITABLE':
+        if 'DIRECT' not in _cls and 'REDIRECT' not in _cls:
+            classification = 'Direct Fit'
+
+    # 4. Trust Track 3 for missing/verification — do not filter by Track 1 keywords.
+    #    The old filter was too aggressive and was deleting legitimate NOT_PROVIDED gaps.
+    if not missing_req:
+        missing_req = 'None — all listed requirements confirmed or under review.'
 
     parsed = {
         'eligibility':           eligibility,
