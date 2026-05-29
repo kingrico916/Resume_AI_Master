@@ -1149,10 +1149,18 @@ Example: job requires BA → candidate has PhD → mark CONFIRMED. Never mark a 
 NOT_PROVIDED when the candidate holds a higher credential.
 
 STANDARD SKILLS RULE:
-Common workplace tools are implied by relevant work experience. If the resume shows administrative,
-clerical, office coordination, management, or customer service experience, mark the following as CONFIRMED
-without requiring explicit mention: MS Office / Microsoft Office (Word, Excel, Outlook, PowerPoint),
-basic computer use, data entry, email, internet. Do NOT flag these as NOT_PROVIDED for experienced workers.
+This rule applies ONLY to basic workplace tools. If the resume shows administrative, clerical, office
+coordination, management, or customer service experience, mark ONLY the following as CONFIRMED without
+explicit mention: MS Office / Microsoft Office (Word, Excel, Outlook, PowerPoint), basic computer use,
+data entry, email, internet.
+This rule does NOT apply to specialized software, platforms, or domain expertise (e.g. ERP systems,
+HCM modules, Workday, SAP, Salesforce, specific certifications, clinical systems). Those must be
+explicitly demonstrated in the resume to be CONFIRMED.
+
+EXPERIENCE MINIMUM RULE:
+If a requirement states a minimum years of experience (e.g. "5+ years", "6-10 years") and the resume
+shows MORE than the stated range, mark it CONFIRMED. Having more experience than required is never a gap.
+Only flag experience requirements as NOT_PROVIDED if the resume shows clearly less than the minimum.
 
 CANDIDATE: {candidate_name}
 JOB: {job_title} at {company} ({job_city}, {job_state})
@@ -1222,6 +1230,9 @@ RANK-TO-CIVILIAN CROSSWALK:
 RULES:
 - No fabrication. Only use experience and credentials already in the resume.
 - Translate military jargon to civilian language.
+- IMPROVEMENTS must only suggest stronger civilian language for experience the candidate already has.
+  Do NOT suggest renaming job titles or adding domain expertise (e.g. HCM, ERP, Workday, SAP) that
+  does not appear in the resume. Suggesting a candidate misrepresent their background is not permitted.
 
 Identify 10-15 key terms the employer used in the job description (skills, certifications, tools, action verbs — their exact words).
 
@@ -1297,6 +1308,13 @@ STANDARD SKILLS RULE:
 Do NOT list MS Office, Microsoft Office, basic computer use, data entry, email, or internet as missing
 requirements if the resume shows any administrative, clerical, office, management, or customer service
 experience. These are implied baseline skills for experienced workers.
+This rule does NOT apply to specialized platforms, enterprise systems, or domain expertise (e.g. ERP,
+HCM modules, Workday, SAP, Salesforce). Those must appear explicitly in the resume to be considered met.
+
+EXPERIENCE MINIMUM RULE:
+If the resume shows MORE years of experience than a stated minimum or range (e.g. candidate has 20 years,
+job requires 6-10 years), that requirement is CONFIRMED — do NOT list it as missing or ask the VSC to
+verify it. Only flag experience requirements when the resume shows clearly less than the minimum required.
 
 OUTPUT — EXACT FORMAT ONLY:
 MISSING_REQUIREMENTS:
