@@ -7,7 +7,7 @@ from flask import Flask, render_template, request, jsonify, send_file, session, 
 import requests
 import os
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv(override=True)
 import re
 import json
 import logging
@@ -42,6 +42,7 @@ from data.database import (
     save_custom_template, get_custom_templates, delete_custom_template,
     log_job_upload, get_last_job_upload, delete_job_by_title,
     get_user_by_email, get_user_by_id, seed_users, get_dashboard_stats,
+    archive_email_log, restore_email_log, hard_delete_email_log,
     PIPELINE_STAGES, STAGE_LABELS, STAGE_COLORS, MILITARY_BRANCHES,
     ENGAGEMENT_TYPES, ENGAGEMENT_SUBTYPES, ENGAGEMENT_TYPE_LABELS, ENGAGEMENT_SUBTYPE_LABELS
 )
@@ -68,6 +69,7 @@ logging.getLogger('werkzeug').setLevel(logging.ERROR)
 
 _print = __builtins__['print'] if isinstance(__builtins__, dict) else __builtins__.print
 def print(*args, **kwargs):
+    kwargs.setdefault('flush', True)
     _print(f"[{datetime.now().strftime('%H:%M:%S')}]", *args, **kwargs)
 app.config['MAX_CONTENT_LENGTH'] = 200 * 1024 * 1024  # 200MB max
 
@@ -88,9 +90,24 @@ _SEED_USERS = [
 _pw = generate_password_hash("WFW2026!")
 seed_users([{**u, "password_hash": _pw} for u in _SEED_USERS])
 
-# Configuration
-OPENROUTER_API_KEY  = os.getenv("OPENROUTER_API_KEY", "")
-HF_API_KEY          = os.getenv("HF_API_KEY", "")
+# Configuration — read directly from .env file to bypass Windows system env var interference
+def _read_env_key(key_name):
+    """Read a key directly from .env file, bypassing os.environ entirely."""
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+    try:
+        with open(env_path) as _ef:
+            for _line in _ef:
+                _line = _line.strip()
+                if _line.startswith(f'{key_name}=') and not _line.startswith('#'):
+                    return _line.split('=', 1)[1].strip()
+    except Exception:
+        pass
+    return os.getenv(key_name, '')
+
+HF_API_KEY          = _read_env_key("HF_API_KEY")
+DEEPSEEK_API_KEY    = _read_env_key("DEEPSEEK_API_KEY")
+GEMINI_API_KEY      = _read_env_key("GEMINI_API_KEY")
+ANTHROPIC_API_KEY   = _read_env_key("ANTHROPIC_API_KEY")
 OUTLOOK_USER        = os.getenv("OUTLOOK_USER", "anthony.antonucci@workforwarriors.org")
 OUTLOOK_PASSWORD    = os.getenv("OUTLOOK_PASSWORD", "")
 GRAPH_TENANT_ID     = os.getenv("GRAPH_TENANT_ID", "")
@@ -459,10 +476,8 @@ Automated notification - Work for Warriors Resume AI
 
 
 def analyze_with_ai(resume_text, candidate_name, candidate_location, target_job, alternative_jobs):
-    """Send to OpenRouter for comprehensive AI analysis"""
+    """AI analysis via DeepSeek direct."""
     try:
-        url = "https://openrouter.ai/api/v1/chat/completions"
-        
         # Build alternative jobs text
         alt_jobs_text = "\n".join([
             f"- {job['Job Title']} at {job['Company Name']} ({job['City']}, {job['State']}) - Distance: {job.get('distance', 'N/A')} miles"
@@ -613,27 +628,13 @@ Salary: [range]
 - If unsure, omit rather than guess
 """
         
-        headers = {
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-            "Content-Type": "application/json"
-        }
-        
-        data = {
-            "model": "moonshotai/kimi-k2:free",
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 4000
-        }
-
-        print(" Sending to OpenRouter...")
-        response = requests.post(url, headers=headers, json=data, timeout=120)
-        
-        if response.status_code == 200:
-            result = response.json()
-            analysis = result['choices'][0]['message']['content']
+        messages = [{"role": "user", "content": prompt}]
+        print(" Sending to DeepSeek...")
+        content, used = _call_deepseek(messages, max_tokens=4000)
+        if content:
             print(" Analysis complete")
-            return analysis
-        else:
-            return f"API Error: {response.status_code} - {response.text}"
+            return content
+        return "Analysis error: DeepSeek unavailable"
 
     except Exception as e:
         return f"Analysis error: {str(e)}"
@@ -646,6 +647,179 @@ def quick_extract_location(resume_text):
     if m:
         return m.group(1).strip(), m.group(2).strip()
     return None, None
+
+
+def _extract_contact_fields(body_text, resume_text):
+    """Search every available text source for every contact field.
+    No source is exclusive to any field — all patterns run on all sources.
+    Returns dict: phones (str), address (str), city (str), state (str).
+    """
+    sources = [s for s in [body_text or '', resume_text or ''] if s.strip()]
+
+    PHONE_LABELED = re.compile(
+        r'(?:Phone|Tel(?:ephone)?|Mobile|Cell|Direct)[:\s]+(\+?1?[\s.\-]?\(?\d{3}\)?[\s.\-]\d{3}[\s.\-]\d{4})',
+        re.IGNORECASE
+    )
+    PHONE_BARE = re.compile(r'(?<!\d)(\+?1?\s?\(?\d{3}\)?[\s.\-]\d{3}[\s.\-]\d{4})(?!\d)')
+
+    STREET_RE = re.compile(
+        r'(\d{1,5}\s+[A-Za-z0-9\.\s]{3,40}'
+        r'(?:Street|St|Avenue|Ave|Drive|Dr|Road|Rd|Lane|Ln|Boulevard|Blvd|Way|'
+        r'Court|Ct|Place|Pl|Circle|Cir|Terrace|Ter|Highway|Hwy|Parkway|Pkwy)'
+        r'\.?(?:\s*(?:Apt|Suite|Ste|Unit|#)\s*[\w-]+)?)',
+        re.IGNORECASE
+    )
+
+    CITY_STATE_RE = re.compile(r'\b([A-Z][a-zA-Z\s]{2,20}),\s*([A-Z]{2})(?:\s+\d{5})?\b')
+
+    all_phones  = []
+    seen_digits = set()
+    address     = ''
+    city        = ''
+    state       = ''
+
+    for text in sources:
+        # Phones — labeled pattern (full text)
+        for m in PHONE_LABELED.finditer(text):
+            digits = re.sub(r'\D', '', m.group(1))
+            if len(digits) >= 10 and digits not in seen_digits and len(set(digits)) > 3:
+                seen_digits.add(digits)
+                all_phones.append(m.group(1).strip())
+
+        # Phones — bare pattern (header only to avoid ZIP/date false positives)
+        for m in PHONE_BARE.finditer(text[:1000]):
+            digits = re.sub(r'\D', '', m.group(1))
+            if len(digits) >= 10 and digits not in seen_digits and len(set(digits)) > 3:
+                seen_digits.add(digits)
+                all_phones.append(m.group(1).strip())
+
+        # Street address
+        if not address:
+            m = STREET_RE.search(text[:2000])
+            if m:
+                address = m.group(1).strip()
+
+        # City / State
+        if not city:
+            m = CITY_STATE_RE.search(text[:1500])
+            if m:
+                city  = m.group(1).strip()
+                state = m.group(2).strip()
+
+    return {
+        'phones':  ' / '.join(all_phones),
+        'address': address,
+        'city':    city,
+        'state':   state,
+    }
+
+
+def _extract_military_profile(resume_text):
+    """Extract branch, rank, MOS, and years_served from resume text.
+    Returns dict — all keys present, values may be empty string.
+    """
+    # Use full text but focus early sections for header fields
+    text      = resume_text[:4000]
+    text_up   = text.upper()
+    result    = {'branch': '', 'rank': '', 'mos': '', 'years_served': ''}
+
+    # ── Branch ────────────────────────────────────────────────────────────────
+    for pattern, label in [
+        (r'\bU\.?S\.?\s*Army\b|\bUnited\s+States\s+Army\b',                'Army'),
+        (r'\bU\.?S\.?\s*Marine\s+Corps\b|\bUnited\s+States\s+Marine\b|\bUSMC\b|\bMarines\b', 'Marine Corps'),
+        (r'\bU\.?S\.?\s*Navy\b|\bUnited\s+States\s+Navy\b|\bUSN\b',        'Navy'),
+        (r'\bU\.?S\.?\s*Air\s+Force\b|\bUnited\s+States\s+Air\s+Force\b|\bUSAF\b', 'Air Force'),
+        (r'\bU\.?S\.?\s*Coast\s+Guard\b|\bUnited\s+States\s+Coast\s+Guard\b|\bUSCG\b', 'Coast Guard'),
+        (r'\bU\.?S\.?\s*Space\s+Force\b|\bUnited\s+States\s+Space\s+Force\b|\bUSSF\b', 'Space Force'),
+        (r'\bArmy\s+National\s+Guard\b|\bAir\s+National\s+Guard\b|\bNational\s+Guard\b', 'National Guard'),
+        (r'\bArmy\s+Reserve\b|\bNaval\s+Reserve\b|\bAir\s+Force\s+Reserve\b|\bMarine\s+Reserve\b', 'Reserve'),
+    ]:
+        if re.search(pattern, text, re.IGNORECASE):
+            result['branch'] = label
+            break
+
+    # ── Rank — spelled-out (specific before general) ─────────────────────────
+    SPELLED_RANKS = [
+        # Warrant Officers
+        'Chief Warrant Officer 5', 'Chief Warrant Officer 4', 'Chief Warrant Officer 3',
+        'Chief Warrant Officer 2', 'Chief Warrant Officer',
+        # Army/Marines NCO (highest-first to avoid partial matches)
+        'Command Sergeant Major', 'Sergeant Major of the Army',
+        'Sergeant Major', 'First Sergeant', 'Master Sergeant',
+        'Sergeant First Class', 'Staff Sergeant', 'Sergeant', 'Corporal', 'Specialist',
+        'Private First Class', 'Private',
+        # Navy/CG
+        'Master Chief Petty Officer', 'Senior Chief Petty Officer', 'Chief Petty Officer',
+        'Petty Officer First Class', 'Petty Officer Second Class', 'Petty Officer Third Class',
+        'Seaman', 'Seaman Apprentice', 'Seaman Recruit',
+        # Air/Space Force
+        'Chief Master Sergeant', 'Senior Master Sergeant',
+        'Technical Sergeant', 'Senior Airman', 'Airman First Class', 'Airman Basic', 'Airman',
+        # Officers
+        'General of the Army', 'General', 'Lieutenant General', 'Major General',
+        'Brigadier General', 'Colonel', 'Lieutenant Colonel',
+        'Major', 'Captain', 'First Lieutenant', 'Second Lieutenant',
+    ]
+    for r in SPELLED_RANKS:
+        if re.search(rf'\b{re.escape(r)}\b', text, re.IGNORECASE):
+            result['rank'] = r
+            break
+
+    # Fallback: common abbreviations (word-boundary, uppercase only to reduce false positives)
+    if not result['rank']:
+        for abbrev, full in [
+            ('CSM', 'Command Sergeant Major'), ('SGM', 'Sergeant Major'),
+            ('1SG', 'First Sergeant'),         ('MSG', 'Master Sergeant'),
+            ('SFC', 'Sergeant First Class'),   ('SSG', 'Staff Sergeant'),
+            ('SGT', 'Sergeant'),               ('CPL', 'Corporal'),
+            ('SPC', 'Specialist'),             ('PFC', 'Private First Class'),
+            ('CW5', 'Chief Warrant Officer 5'), ('CW4', 'Chief Warrant Officer 4'),
+            ('CW3', 'Chief Warrant Officer 3'), ('CW2', 'Chief Warrant Officer 2'),
+            ('WO1', 'Warrant Officer'),
+            ('MCPO', 'Master Chief Petty Officer'), ('SCPO', 'Senior Chief Petty Officer'),
+            ('CPO', 'Chief Petty Officer'),
+            ('GEN', 'General'), ('LTG', 'Lieutenant General'), ('MG', 'Major General'),
+            ('BG', 'Brigadier General'), ('COL', 'Colonel'), ('LTC', 'Lieutenant Colonel'),
+            ('MAJ', 'Major'), ('CPT', 'Captain'), ('CAPT', 'Captain'),
+            ('1LT', 'First Lieutenant'), ('2LT', 'Second Lieutenant'),
+            ('CMSGT', 'Chief Master Sergeant'), ('SMSGT', 'Senior Master Sergeant'),
+            ('MSGT', 'Master Sergeant'), ('TSGT', 'Technical Sergeant'),
+            ('SSGT', 'Staff Sergeant'), ('SRA', 'Senior Airman'), ('A1C', 'Airman First Class'),
+        ]:
+            if re.search(rf'\b{re.escape(abbrev)}\b', text_up):
+                result['rank'] = full
+                break
+
+    # ── MOS — scan for known codes ────────────────────────────────────────────
+    found_codes = [code for code in MOS_CROSSWALK if re.search(rf'\b{re.escape(code)}\b', text_up)]
+    if found_codes:
+        result['mos'] = ', '.join(found_codes[:3])
+
+    # ── Years served ──────────────────────────────────────────────────────────
+    m = re.search(
+        r'(\d{1,2})\s+years?\s+(?:of\s+)?(?:military\s+|active[\s-]+duty\s+)?(?:service|experience)',
+        text, re.IGNORECASE
+    )
+    if m:
+        result['years_served'] = f"{m.group(1)} years"
+    else:
+        # Date range near a military section (e.g. "U.S. Army  2005 – 2019")
+        mil_m = re.search(
+            r'(?:Army|Navy|Marine|Air Force|Coast Guard|Military|Service).*?(\b(?:19|20)\d{2}\b).*?(\b(?:19|20)\d{2}\b|[Pp]resent)',
+            text, re.IGNORECASE | re.DOTALL
+        )
+        if mil_m:
+            try:
+                start = int(mil_m.group(1))
+                end_raw = mil_m.group(2)
+                end = 2026 if re.match(r'[Pp]resent', end_raw) else int(end_raw)
+                span = end - start
+                if 1 <= span <= 40:
+                    result['years_served'] = f"{span} years"
+            except (ValueError, TypeError):
+                pass
+
+    return result
 
 
 # Degree hierarchy: higher index = higher credential
@@ -727,41 +901,181 @@ def check_education_requirement(resume_text, qualifications_text):
 
 
 _MODEL_DISPLAY = {
-    "moonshotai/kimi-k2:free":              "Kimi K2",
-    "deepseek/deepseek-chat-v3-0324:free":  "DeepSeek V3",
-    "deepseek/deepseek-v4-flash:free":      "DeepSeek V4 Flash",
-    "google/gemma-4-31b-it:free":           "Gemma 4 31B",
-    "google/gemma-4-26b-a4b-it:free":       "Gemma 4 26B",
-    "meta-llama/llama-4-scout:free":        "Llama 4 Scout",
-    "qwen/qwen3-235b-a22b:free":            "Qwen3 235B",
+    "deepseek-chat":                    "DeepSeek",
+    "anthropic/claude-haiku-4-5-20251001": "Claude Haiku",
+    "gemini/gemini-2.0-flash":          "Gemini",
 }
 
 def _model_name(model_id):
     return _MODEL_DISPLAY.get(model_id, model_id)
 
 
-def _call_model(model, messages, max_tokens=1500, timeout=180):
-    """Call one OpenRouter model. Returns (content, model_id) or (None, None)."""
+import logging as _logging
+_dbg_logger = _logging.getLogger('awis.debug')
+if not _dbg_logger.handlers:
+    _dbg_handler = _logging.FileHandler('webhook_debug.log', encoding='utf-8')
+    _dbg_handler.setFormatter(_logging.Formatter('%(asctime)s %(message)s'))
+    _dbg_logger.addHandler(_dbg_handler)
+    _dbg_logger.setLevel(_logging.DEBUG)
+
+def _dbg_log(msg):
+    _dbg_logger.debug(msg)
+
+
+_MODEL_LOG = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'model_debug.log')
+
+def _mlog(msg):
+    line = f"{datetime.now().strftime('%H:%M:%S')} {msg}"
+    _print(line, flush=True)
     try:
+        with open(_MODEL_LOG, 'a', encoding='utf-8') as f:
+            f.write(line + "\n")
+    except Exception as _mlog_err:
+        _print(f"[MLOG WRITE FAIL] {_mlog_err}", flush=True)
+
+def _call_chat_api(base_url, api_key, model, messages, max_tokens=1500, timeout=180):
+    """Call a chat completions API endpoint."""
+    if not api_key:
+        return None, None
+    import time
+    for attempt in range(3):
+        try:
+            resp = requests.post(
+                f"{base_url.rstrip('/')}/chat/completions",
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json={"model": model, "messages": messages, "max_tokens": max_tokens},
+                timeout=timeout,
+            )
+            if resp.status_code == 200:
+                choices = resp.json().get("choices", [])
+                if choices:
+                    text = choices[0].get("message", {}).get("content", "")
+                    if text and text.strip():
+                        _mlog(f"OK    {model} (direct)  {len(text)} chars")
+                        return text.strip(), model
+                _mlog(f"EMPTY {model}  200 no content: {resp.text[:200]}")
+                return None, None
+            if resp.status_code == 429:
+                wait = 5 * (2 ** attempt)
+                _mlog(f"WAIT  {model}  429 retry in {wait}s")
+                time.sleep(wait)
+                continue
+            _mlog(f"ERR   {model}  HTTP {resp.status_code}: {resp.text[:300]}")
+            return None, None
+        except Exception as e:
+            _mlog(f"EXC   {model}  {e}")
+            return None, None
+    return None, None
+
+
+
+def _call_deepseek(messages, max_tokens=1500, model="deepseek-chat"):
+    """Call DeepSeek direct API."""
+    key = _read_env_key("DEEPSEEK_API_KEY")
+    _mlog(f"DS    key={'found' if key else 'MISSING'}  model={model}")
+    if not key:
+        return None, None
+    _mlog(f"CALL  deepseek-direct/{model}  max_tokens={max_tokens}")
+    content, used = _call_chat_api(
+        "https://api.deepseek.com", key, model, messages, max_tokens=max_tokens, timeout=120
+    )
+    if content:
+        _mlog(f"OK    deepseek-direct/{model}  {len(content)} chars")
+        return content, f"deepseek-direct/{model}"
+    _mlog(f"FAIL  deepseek-direct/{model}")
+    return None, None
+
+
+def _call_gemini(messages, max_tokens=900, model="gemini-2.0-flash"):
+    """Call Gemini API directly. Used only on Opportunities track (resume header only — no full PII)."""
+    key = _read_env_key("GEMINI_API_KEY")
+    _mlog(f"GEMINI  key={'found' if key else 'MISSING'}  model={model}")
+    if not key:
+        return None, None
+    try:
+        text_in = "\n".join(m.get("content", "") for m in messages if m.get("role") == "user")
         resp = requests.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers={"Authorization": f"Bearer {OPENROUTER_API_KEY}", "Content-Type": "application/json"},
-            json={"model": model, "messages": messages, "max_tokens": max_tokens},
-            timeout=timeout,
+            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}",
+            headers={"Content-Type": "application/json"},
+            json={"contents": [{"parts": [{"text": text_in}]}],
+                  "generationConfig": {"maxOutputTokens": max_tokens}},
+            timeout=120,
         )
         if resp.status_code == 200:
-            choices = resp.json().get('choices', [])
-            if choices:
-                raw = choices[0].get('message', {}).get('content', '')
-                if raw and raw.strip():
-                    return raw.strip(), model
-            print(f"  {model}: 200 but no content")
+            candidates = resp.json().get("candidates", [])
+            if candidates:
+                text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                if text and text.strip():
+                    _mlog(f"GEMINI OK  {len(text)} chars")
+                    return text.strip(), f"gemini/{model}"
+            _mlog(f"GEMINI EMPTY  200 no content")
             return None, None
-        print(f"  {model}: HTTP {resp.status_code} — {resp.text[:150]}")
+        _mlog(f"GEMINI ERR  HTTP {resp.status_code}: {resp.text[:200]}")
         return None, None
     except Exception as e:
-        print(f"  {model}: exception — {e}")
+        _mlog(f"GEMINI EXC  {e}")
         return None, None
+
+
+_HF_FALLBACK_MODELS = [
+    "meta-llama/Meta-Llama-3-8B-Instruct",
+    "mistralai/Mistral-7B-Instruct-v0.3",
+    "Qwen/Qwen2.5-7B-Instruct",
+    "HuggingFaceH4/zephyr-7b-beta",
+]
+
+
+def _call_claude(messages, max_tokens=1500, model="claude-haiku-4-5-20251001"):
+    """Call Anthropic API directly."""
+    key = _read_env_key("ANTHROPIC_API_KEY")
+    _mlog(f"CLAUDE  key={'found' if key else 'MISSING'}  model={model}")
+    if not key:
+        return None, None
+    try:
+        resp = requests.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": key,
+                "anthropic-version": "2023-06-01",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": model,
+                "max_tokens": max_tokens,
+                "messages": [m for m in messages if m.get("role") in ("user", "assistant")],
+            },
+            timeout=120,
+        )
+        if resp.status_code == 200:
+            content_blocks = resp.json().get("content", [])
+            text = "".join(b.get("text", "") for b in content_blocks if b.get("type") == "text")
+            if text and text.strip():
+                _mlog(f"CLAUDE OK  {len(text)} chars")
+                return text.strip(), f"anthropic/{model}"
+            _mlog(f"CLAUDE EMPTY  200 no content")
+            return None, None
+        _mlog(f"CLAUDE ERR  HTTP {resp.status_code}: {resp.text[:300]}")
+        return None, None
+    except Exception as e:
+        _mlog(f"CLAUDE EXC  {e}")
+        return None, None
+
+
+def _call_with_fallback(messages, max_tokens=1500):
+    """Try DeepSeek direct first, then HuggingFace."""
+    content, used = _call_deepseek(messages, max_tokens=max_tokens)
+    if content:
+        return content, used
+    if HF_API_KEY:
+        hf_max = min(max_tokens, 1024)
+        for hf_model in _HF_FALLBACK_MODELS:
+            _mlog(f"HF    {hf_model.split('/')[-1]}  max_tokens={hf_max}")
+            content, used = _call_hf_model(hf_model, messages, max_tokens=hf_max)
+            if content:
+                _mlog(f"HF OK {hf_model.split('/')[-1]}  {len(content)} chars")
+                return content, used
+            _mlog(f"HF NO {hf_model.split('/')[-1]}")
+    return None, None
 
 
 def _call_hf_model(model, messages, max_tokens=1500, timeout=180):
@@ -782,21 +1096,15 @@ def _call_hf_model(model, messages, max_tokens=1500, timeout=180):
                 if raw and raw.strip():
                     display = model.split('/')[-1].replace('-Instruct', '').replace('-instruct', '')
                     return raw.strip(), display
+        _mlog(f"HF ERR {model.split('/')[-1]}  HTTP {resp.status_code}: {resp.text[:200]}")
         return None, None
-    except Exception:
+    except Exception as e:
+        _mlog(f"HF EXC {model.split('/')[-1]}  {e}")
         return None, None
-
-
-def _call_with_fallback(models, messages, max_tokens=1500, timeout=180):
-    """Try each model in sequence, return first success as (content, model_id)."""
-    for model in models:
-        content, used = _call_model(model, messages, max_tokens, timeout)
-        if content:
-            return content, used
-    return None, None
 
 
 def analyze_for_vsc(resume_text, candidate_name, target_job, alternative_jobs):
+    _mlog("=== ANALYSIS START — DeepSeek direct only ===")
     """
     AWIS Council v1.0 — 4 specialized tracks run in parallel, assembled into one report.
     Returns (assembled_text, track_credits) or (None, None).
@@ -876,16 +1184,24 @@ PRIMARY_GRADE: [grade]
 TRUE_FIT_GRADE: [grade]
 SHADOW_GRADE: [grade or N/A]
 
+CLASSIFICATION RULES — FOLLOW EXACTLY:
+Direct Fit   = ELIGIBLE is SUITABLE AND candidate experience directly aligns to this role → submit
+Redirect     = ELIGIBLE is SUITABLE but candidate is clearly better suited to a DIFFERENT job category — NOT for minor gaps, NOT for near-matches, NOT for B-range grades
+Develop      = ELIGIBLE is PENDING REVIEW AND there are fixable skill gaps → coach before submitting
+Non-viable   = ELIGIBLE is NOT SUITABLE — FINAL only
+
+IMPORTANT: If ELIGIBILITY = SUITABLE, use Direct Fit in almost all cases. Only use Redirect when the
+role type itself is genuinely wrong for this candidate (e.g. a pilot applying for an accounting role).
+A B- grade, a missing soft skill, or a single unconfirmed requirement is NOT grounds for Redirect.
+When in doubt, choose Direct Fit and let the employer decide.
 CLASSIFICATION: [Direct Fit | Redirect | Develop | Non-viable]
 END"""
 
-    # ── Track 2: Development ──────────────────────────────────────────────────
+    # ── Track 2: Development (split into T2a + T2b to stay under per-request token cap) ──
     mos_translations = _extract_mos_translations(resume_text)
     mos_block = f"\n{mos_translations}\n" if mos_translations else ""
 
-    t2 = f"""You are a veteran career coach and resume writer for Work for Warriors.
-
-CANDIDATE: {candidate_name}
+    _t2_context = f"""CANDIDATE: {candidate_name}
 JOB: {job_title} at {company}
 JOB DESCRIPTION:
 {job_desc}
@@ -897,33 +1213,46 @@ RESUME:
 {resume_text}
 
 RANK-TO-CIVILIAN CROSSWALK:
-{MILITARY_CROSSWALK}{mos_block}
+{MILITARY_CROSSWALK}{mos_block}"""
+
+    t2a = f"""You are a veteran career coach for Work for Warriors.
+
+{_t2_context}
+
 RULES:
-- No fabrication. Never invent experience, credentials, or metrics not in the original resume.
-- Quantify only what the resume already supports. If a number isn't there, don't add one.
-- Translate all military jargon to civilian language (e.g. "deployed" → "mobilized", "TDY" → "temporary assignment", "CONUS/OCONUS" → omit or rephrase).
-- Use the rank crosswalk and any MOS translations above to reframe military titles and roles.
-- Resume rewrite must fit one page. Prioritize relevance to the target job.
+- No fabrication. Only use experience and credentials already in the resume.
+- Translate military jargon to civilian language.
 
-STEP 1 — Extract key terms from the job description above.
-Identify 10-15 specific terms the employer used: required skills, certifications, tools, job-specific phrases, and action verbs directly from the posting. These are the employer's own words — not guesses about what a system scans for.
-
-STEP 2 — Write the resume using those terms naturally integrated wherever the candidate's actual experience supports them.
+Identify 10-15 key terms the employer used in the job description (skills, certifications, tools, action verbs — their exact words).
 
 OUTPUT — EXACT FORMAT ONLY:
 ATS_KEYWORDS:
-[comma-separated list of 10-15 key terms taken directly from the job description]
+[comma-separated list of 10-15 key terms from the job description]
 
 JUSTIFICATION:
-- [bullet: how candidate's background aligns to this specific role]
-- [bullet: transferable skills or military experience that maps to requirements]
-- [bullet: any risk, gap, or notable strength worth flagging for the VSC]
+- [how candidate's background aligns to this role]
+- [transferable skills or military experience mapping to requirements]
+- [any risk, gap, or notable strength for the VSC]
 
 IMPROVEMENTS:
 - [specific ATS language change — original phrase → improved phrase]
 - [specific ATS language change]
 - [specific ATS language change]
+END"""
 
+    t2b = f"""You are a veteran resume writer for Work for Warriors.
+
+{_t2_context}
+
+RULES:
+- No fabrication. Never invent experience, credentials, or metrics not in the original resume.
+- Quantify only what the resume already supports. If a number isn't there, don't add one.
+- Translate all military jargon to civilian language (e.g. "deployed" → "mobilized", "TDY" → "temporary assignment").
+- Use the rank crosswalk and MOS translations to reframe military titles and roles.
+- Resume must fit one page. Prioritize relevance to the target job.
+- Integrate the employer's own key terms naturally where the candidate's experience supports them.
+
+OUTPUT — EXACT FORMAT ONLY:
 RESUME_REWRITE:
 [Full civilian-language, ATS-optimized resume. Sections: Professional Summary | Core Competencies | Professional Experience | Military Service | Education & Certifications. No invented experience.]
 END"""
@@ -1035,41 +1364,73 @@ END"""
 
     track_results = {}
 
-    def run_track(track_id, models, prompt, max_tokens):
-        content, used = _call_with_fallback(
-            models, [{"role": "user", "content": prompt}], max_tokens=max_tokens
-        )
-        track_results[track_id] = (content, used)
+    def run_track_split(track_id, prompt_a, max_a, prompt_b, max_b):
+        _print(f"  [TRACK] {track_id} START (split)", flush=True)
+        try:
+            msgs = lambda p: [{"role": "user", "content": p}]
+            content_a, used_a = _call_with_fallback(msgs(prompt_a), max_tokens=max_a)
+            content_b, used_b = _call_with_fallback(msgs(prompt_b), max_tokens=max_b)
+            combined = "\n\n".join(filter(None, [content_a, content_b]))
+            track_results[track_id] = (combined if combined else None, used_a or used_b)
+            _print(f"  [TRACK] {track_id} DONE: {'OK' if combined else 'None'}", flush=True)
+        except Exception as _te:
+            import traceback as _tb
+            _print(f"  [TRACK] {track_id} EXCEPT: {_te}", flush=True)
+            _print(_tb.format_exc(), flush=True)
+            track_results[track_id] = (None, None)
+
+    def run_track(track_id, prompt, max_tokens, primary=None):
+        _print(f"  [TRACK] {track_id} START", flush=True)
+        try:
+            msgs = [{"role": "user", "content": prompt}]
+            if primary is not None:
+                content, used = primary(msgs, max_tokens=max_tokens)
+                if not content:
+                    content, used = _call_with_fallback(msgs, max_tokens=max_tokens)
+            else:
+                content, used = _call_with_fallback(msgs, max_tokens=max_tokens)
+            track_results[track_id] = (content, used)
+            _print(f"  [TRACK] {track_id} DONE: {'OK' if content else 'None'}", flush=True)
+        except Exception as _te:
+            import traceback as _tb
+            _print(f"  [TRACK] {track_id} EXCEPT: {_te}", flush=True)
+            _print(_tb.format_exc(), flush=True)
+            track_results[track_id] = (None, None)
 
     def run_track_hf(track_id, hf_model, prompt, max_tokens):
-        content, used = _call_hf_model(
-            hf_model, [{"role": "user", "content": prompt}], max_tokens=max_tokens
-        )
-        track_results[track_id] = (content, used)
+        try:
+            content, used = _call_hf_model(
+                hf_model, [{"role": "user", "content": prompt}], max_tokens=max_tokens
+            )
+            track_results[track_id] = (content, used)
+        except Exception as e:
+            import traceback
+            print(f"  Council track_hf '{track_id}' EXCEPTION: {e}")
+            traceback.print_exc()
+            track_results[track_id] = (None, None)
 
     print(f" Running VSC council analysis for {candidate_name}...")
 
+    def run_track_opportunities(prompt, max_tokens):
+        _print(f"  [TRACK] opportunities START", flush=True)
+        try:
+            msgs = [{"role": "user", "content": prompt}]
+            content, used = _call_gemini(msgs, max_tokens=max_tokens)
+            if not content:
+                content, used = _call_deepseek(msgs, max_tokens=max_tokens)
+            track_results['opportunities'] = (content, used)
+            _print(f"  [TRACK] opportunities DONE: {'OK' if content else 'None'}", flush=True)
+        except Exception as _te:
+            import traceback as _tb
+            _print(f"  [TRACK] opportunities EXCEPT: {_te}", flush=True)
+            _print(_tb.format_exc(), flush=True)
+            track_results['opportunities'] = (None, None)
+
     threads = [
-        threading.Thread(target=run_track, args=(
-            'eligibility',
-            ["moonshotai/kimi-k2:free", "deepseek/deepseek-chat-v3-0324:free", "qwen/qwen3-235b-a22b:free", "google/gemma-4-31b-it:free"],
-            t1, 800
-        ), daemon=True),
-        threading.Thread(target=run_track, args=(
-            'development',
-            ["moonshotai/kimi-k2:free", "google/gemma-4-31b-it:free", "deepseek/deepseek-chat-v3-0324:free", "qwen/qwen3-235b-a22b:free"],
-            t2, 3200
-        ), daemon=True),
-        threading.Thread(target=run_track, args=(
-            'verification',
-            ["moonshotai/kimi-k2:free", "qwen/qwen3-235b-a22b:free", "meta-llama/llama-4-scout:free", "google/gemma-4-26b-a4b-it:free"],
-            t3, 600
-        ), daemon=True),
-        threading.Thread(target=run_track, args=(
-            'opportunities',
-            ["moonshotai/kimi-k2:free", "meta-llama/llama-4-scout:free", "deepseek/deepseek-chat-v3-0324:free", "deepseek/deepseek-v4-flash:free"],
-            t4, 900
-        ), daemon=True),
+        threading.Thread(target=run_track, kwargs={'track_id': 'eligibility', 'prompt': t1, 'max_tokens': 800,  'primary': _call_claude}, daemon=True),
+        threading.Thread(target=run_track_split, args=('development', t2a, 1200, t2b, 2500), daemon=True),
+        threading.Thread(target=run_track, kwargs={'track_id': 'verification', 'prompt': t3, 'max_tokens': 600, 'primary': _call_claude}, daemon=True),
+        threading.Thread(target=run_track_opportunities, args=(t4, 900), daemon=True),
     ]
     for t in threads:
         t.start()
@@ -1080,6 +1441,15 @@ END"""
     d_text, d_model = track_results.get('development',  (None, None))
     v_text, v_model = track_results.get('verification', (None, None))
     o_text, o_model = track_results.get('opportunities',(None, None))
+
+    with open('webhook_debug.log', 'a') as _f:
+        _f.write(
+            f"[TRACKS] {candidate_name} — "
+            f"E={'OK' if e_text else 'FAIL'} "
+            f"D={'OK' if d_text else 'FAIL'} "
+            f"V={'OK' if v_text else 'FAIL'} "
+            f"O={'OK' if o_text else 'FAIL'}\n"
+        )
 
     if not e_text:
         print(f" Council: eligibility track failed — cannot produce report")
@@ -1689,7 +2059,7 @@ def health():
     return jsonify({
         'status': 'healthy',
         'jobs_loaded': len(JOBS_DB),
-        'api_key_set': bool(OPENROUTER_API_KEY)
+        'api_key_set': bool(DEEPSEEK_API_KEY)
     })
 
 
@@ -1845,10 +2215,38 @@ def send_email_route():
 @app.route('/api/email_history', methods=['GET'])
 @api_login_required
 def email_history_route():
-    """Return recent email log"""
-    candidate_email = request.args.get('candidate_email')
-    history = get_email_history(limit=50, candidate_email=candidate_email)
-    return jsonify({'history': history})
+    """Return recent email log. Admins see all; VSCs see only non-archived."""
+    candidate_email  = request.args.get('candidate_email')
+    is_admin         = session.get('role') == 'admin'
+    history = get_email_history(limit=50, candidate_email=candidate_email,
+                                include_archived=is_admin)
+    return jsonify({'history': history, 'is_admin': is_admin})
+
+
+@app.route('/api/email_logs/<int:log_id>', methods=['DELETE'])
+@api_login_required
+def delete_email_log_route(log_id):
+    """VSC: soft-archive (hidden from their view, admin retains). Admin: hard delete."""
+    is_admin = session.get('role') == 'admin'
+    if is_admin:
+        ok = hard_delete_email_log(log_id)
+    else:
+        ok = archive_email_log(log_id)
+    if ok:
+        return jsonify({'success': True})
+    return jsonify({'success': False, 'error': 'Log entry not found'}), 404
+
+
+@app.route('/api/email_logs/<int:log_id>/restore', methods=['POST'])
+@api_login_required
+def restore_email_log_route(log_id):
+    """Admin only — un-archive a VSC-deleted entry."""
+    if session.get('role') != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+    ok = restore_email_log(log_id)
+    if ok:
+        return jsonify({'success': True})
+    return jsonify({'success': False, 'error': 'Log entry not found'}), 404
 
 
 #  CRM 
@@ -2155,27 +2553,132 @@ def intake_submit():
             'ryan_email':         RYAN_EMAIL,
         }
 
-        #  Run automation chain 
-        result = run_automation(
-            intake_data=intake_data,
-            analyze_fn=analyze_with_ai,
-            geocode_fn=geocode_location,
-            generate_package_fn=None,
+        #  Look up target job
+        matched = get_job_by_id(target_job_id)
+        if not matched:
+            return jsonify({'success': False, 'error': 'Selected job not found in database'}), 400
+
+        target_job = {
+            'Job Title':       matched.get('job_title', ''),
+            'Company Name':    matched.get('company_name', ''),
+            'City':            matched.get('city', ''),
+            'State':           matched.get('state', ''),
+            'Job Description': matched.get('job_description', ''),
+            'Qualifications':  matched.get('qualifications', ''),
+            'Salary From':     matched.get('salary_from', ''),
+            'Salary To':       matched.get('salary_to', ''),
+        }
+        candidate_name = f"{first_name} {last_name}".strip()
+
+        #  Geocode and find nearby jobs
+        lat, lon = geocode_location(city, state) if city and state else (None, None)
+        alt_jobs = []
+        if lat:
+            db_nearby = get_jobs_near(lat, lon, radius_miles=50)
+            alt_jobs = [{
+                'Job Title':    j.get('job_title', ''),
+                'Company Name': j.get('company_name', ''),
+                'City':         j.get('city', ''),
+                'State':        j.get('state', ''),
+                'distance':     round(j.get('distance_miles', 0), 1),
+            } for j in db_nearby]
+        if not alt_jobs:
+            alt_jobs = list(JOBS_DB[:50])
+
+        #  Run AI council analysis
+        raw_analysis, track_credits = analyze_for_vsc(resume_text, candidate_name, target_job, alt_jobs)
+        if not raw_analysis:
+            return jsonify({'success': False, 'error': 'AI analysis failed'}), 500
+
+        parsed = parse_vsc_analysis(raw_analysis, credits=track_credits)
+        grade  = parsed.get('grade', 'N/A')
+
+        #  Create CRM record
+        candidate_id = create_candidate({
+            'vsc_name':    vsc_name,
+            'first_name':  first_name,
+            'last_name':   last_name,
+            'email':       email,
+            'phone':       phone,
+            'city':        city,
+            'state':       state,
+            'stage':       'RESUME_ANALYZED',
+            'notes':       (
+                f"Applied for: {target_job['Job Title']}\n"
+                f"Eligibility: {parsed.get('eligibility', '')}\n"
+                f"Grade: {grade} | True Fit: {parsed.get('true_fit_grade', '')} | Shadow: {parsed.get('shadow_grade', 'N/A')}\n"
+                f"Classification: {parsed.get('classification', '')}\n\n"
+                f"VERIFICATION REQUIRED:\n{parsed.get('verification_required', '')}"
+            ),
+            'resume_text': resume_text,
+            'source':      'intake',
+        })
+        log_engagement(
+            candidate_id=candidate_id,
+            vsc_name=vsc_name,
+            eng_type='INTAKE',
+            notes=f"Manual intake for {target_job['Job Title']}. AI Grade: {grade}."
         )
 
-        if result['success']:
-            return jsonify({
-                'success':      True,
-                'candidate_id': result['candidate_id'],
-                'grade':        result['grade'],
-                'errors':       result['errors'],
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error':   'Intake processing failed. ' + ('; '.join(result['errors']) if result['errors'] else 'Unknown error.'),
-                'errors':  result['errors'],
-            }), 500
+        #  Send VSC report email
+        if GRAPH_CLIENT_SECRET:
+            try:
+                from data.email_templates import render_template as render_email
+                report = render_email('vsc_analysis_report', {
+                    'candidate_name':        candidate_name,
+                    'candidate_email':       email or '(not provided)',
+                    'vsc_name':              vsc_name,
+                    'job_title':             target_job['Job Title'],
+                    'company_name':          target_job['Company Name'],
+                    'eligibility':           parsed.get('eligibility', ''),
+                    'requirements':          parsed.get('requirements', ''),
+                    'primary_grade':         parsed.get('primary_grade', grade),
+                    'true_fit_grade':        parsed.get('true_fit_grade', ''),
+                    'shadow_grade':          parsed.get('shadow_grade', '') or 'N/A',
+                    'classification':        parsed.get('classification', ''),
+                    'justification':         parsed.get('justification', ''),
+                    'missing_requirements':  parsed.get('missing_requirements', ''),
+                    'verification_required': parsed.get('verification_required', ''),
+                    'improvements':          parsed.get('improvements', ''),
+                    'ats_keywords':          parsed.get('ats_keywords', ''),
+                    'ats_resume':            parsed.get('ats_resume', ''),
+                    'candidate_city':        city or parsed.get('candidate_city', ''),
+                    'alt_1_title':           parsed.get('alt_1_title', ''),
+                    'alt_1_company':         parsed.get('alt_1_company', ''),
+                    'alt_1_distance':        parsed.get('alt_1_distance', ''),
+                    'alt_1_score':           parsed.get('alt_1_score', ''),
+                    'alt_1_why':             parsed.get('alt_1_why', ''),
+                    'alt_2_title':           parsed.get('alt_2_title', ''),
+                    'alt_2_company':         parsed.get('alt_2_company', ''),
+                    'alt_2_distance':        parsed.get('alt_2_distance', ''),
+                    'alt_2_score':           parsed.get('alt_2_score', ''),
+                    'alt_2_why':             parsed.get('alt_2_why', ''),
+                    'alt_3_title':           parsed.get('alt_3_title', ''),
+                    'alt_3_company':         parsed.get('alt_3_company', ''),
+                    'alt_3_distance':        parsed.get('alt_3_distance', ''),
+                    'alt_3_score':           parsed.get('alt_3_score', ''),
+                    'alt_3_why':             parsed.get('alt_3_why', ''),
+                    'eligibility_model':     parsed.get('eligibility_model',  'N/A'),
+                    'development_model':     parsed.get('development_model',  'N/A'),
+                    'verification_model':    parsed.get('verification_model', 'N/A'),
+                    'opportunities_model':   parsed.get('opportunities_model','N/A'),
+                })
+                _graph_send_email(
+                    to_addr  = OUTLOOK_USER,
+                    to_name  = vsc_name,
+                    subject  = report['subject'],
+                    body     = report['body'],
+                    reply_to = OUTLOOK_USER,
+                )
+            except Exception as e:
+                print(f"  Intake VSC email failed: {e}")
+
+        return jsonify({
+            'success':      True,
+            'candidate_id': candidate_id,
+            'grade':        grade,
+            'errors':       [],
+        })
 
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -2207,7 +2710,10 @@ def intake_process():
         vsc_email         VSC email address (required  analysis report sent here)
         candidate_name    sender display name
         candidate_email   sender email address
-        candidate_phone   optional
+        candidate_phone   optional — all numbers joined by " / "
+        candidate_address optional — street address
+        candidate_city    optional — pre-extracted city
+        candidate_state   optional — pre-extracted state (2-letter)
     """
     import sys
     with open('webhook_debug.log', 'a') as _dbg:
@@ -2220,11 +2726,14 @@ def intake_process():
         job_title       = (data.get('job_title') or '').strip()
         vsc_name        = (data.get('vsc_name') or 'VSC').strip()
         vsc_email       = (data.get('vsc_email') or OUTLOOK_USER).strip()
-        candidate_name  = (data.get('candidate_name') or 'Unknown Candidate').strip()
-        candidate_name  = re.sub(r'\s+via\s+.+$', '', candidate_name, flags=re.IGNORECASE).strip()
-        candidate_email = (data.get('candidate_email') or '').strip()
-        candidate_phone = (data.get('candidate_phone') or '').strip()
-        email_body      = (data.get('email_body') or '').strip()
+        candidate_name    = (data.get('candidate_name') or 'Unknown Candidate').strip()
+        candidate_name    = re.sub(r'\s+via\s+.+$', '', candidate_name, flags=re.IGNORECASE).strip()
+        candidate_email   = (data.get('candidate_email') or '').strip()
+        candidate_phone   = (data.get('candidate_phone') or '').strip()
+        candidate_address = (data.get('candidate_address') or '').strip()
+        candidate_city_in = (data.get('candidate_city') or '').strip()
+        candidate_state_in= (data.get('candidate_state') or '').strip()
+        email_body        = (data.get('email_body') or '').strip()
 
         # Append email body to resume text if provided — often contains
         # cover letter content or qualifications not in the attached resume.
@@ -2341,8 +2850,13 @@ def intake_process():
                 'action':       'Upload updated CSV at /manual, then reprocess manually',
             }), 202
 
-        #  Step 2: Extract candidate location from resume (for geosync) 
-        city, state = quick_extract_location(resume_text)
+        #  Step 2: Resolve candidate location for geosync
+        # Use pre-extracted values from payload (body + resume pass) first;
+        # fall back to resume-only quick extract when payload is blank.
+        city  = candidate_city_in  or ''
+        state = candidate_state_in or ''
+        if not city or not state:
+            city, state = quick_extract_location(resume_text)
         alt_jobs = []
         if city and state:
             cand_lat, cand_lon = geocode_location(city, state)
@@ -2392,30 +2906,38 @@ def intake_process():
         grade = parsed.get('grade', 'N/A')
         candidate_city = parsed.get('candidate_city') or city or 'Unknown'
 
-        #  Step 5: Create CRM record 
+        #  Step 5: Create CRM record
+        mil = _extract_military_profile(resume_text)
+        print(f"  Military profile: branch={mil['branch'] or '?'}  rank={mil['rank'] or '?'}  mos={mil['mos'] or '?'}  years={mil['years_served'] or '?'}")
+
         candidate_id = None
         try:
             name_parts = candidate_name.split(' ', 1)
             first = name_parts[0]
             last  = name_parts[1] if len(name_parts) > 1 else ''
             candidate_id = create_candidate({
-                'vsc_name':    vsc_name,
-                'first_name':  first,
-                'last_name':   last,
-                'email':       candidate_email,
-                'phone':       candidate_phone,
-                'city':        candidate_city,
-                'state':       parsed.get('candidate_state', state or ''),
-                'stage':       'RESUME_ANALYZED',
-                'notes':       (
+                'vsc_name':     vsc_name,
+                'first_name':   first,
+                'last_name':    last,
+                'email':        candidate_email,
+                'phone':        candidate_phone,
+                'address':      candidate_address,
+                'city':         candidate_city,
+                'state':        parsed.get('candidate_state', state or ''),
+                'branch':       mil['branch'],
+                'rank':         mil['rank'],
+                'mos':          mil['mos'],
+                'years_served': mil['years_served'],
+                'stage':        'RESUME_ANALYZED',
+                'notes':        (
                     f"Applied for: {job_title}\n"
                     f"Eligibility: {parsed.get('eligibility', '')}\n"
                     f"Grade: {grade} | True Fit: {parsed.get('true_fit_grade', '')} | Shadow: {parsed.get('shadow_grade', 'N/A')}\n"
                     f"Classification: {parsed.get('classification', '')}\n\n"
                     f"VERIFICATION REQUIRED:\n{parsed.get('verification_required', '')}"
                 ),
-                'resume_text': resume_text,
-                'source':      'intake',
+                'resume_text':  resume_text,
+                'source':       'intake',
             })
             print(f" CRM record created: ID {candidate_id}")
             # Auto-log INTAKE engagement
@@ -2482,6 +3004,8 @@ def intake_process():
             except Exception as e:
                 print(f"  VSC email failed: {e}")
 
+        with open('webhook_debug.log', 'a') as _dbg:
+            _dbg.write(f"[RESULT] SUCCESS candidate={candidate_name} grade={grade} id={candidate_id}\n")
         return jsonify({
             'success':      True,
             'candidate_id': candidate_id,
@@ -2493,7 +3017,11 @@ def intake_process():
         })
 
     except Exception as e:
-        print(f" Intake process error: {e}")
+        import traceback as _tb
+        _trace = _tb.format_exc()
+        print(f" Intake process error: {e}\n{_trace}")
+        with open('webhook_debug.log', 'a') as _dbg:
+            _dbg.write(f"[RESULT] EXCEPTION: {e}\n{_trace}\n")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -2547,12 +3075,14 @@ def run_ghost_check():
             stale = get_candidates_needing_followup(days=7)
             if not stale:
                 print(" Ghost check: no stale candidates")
+                threading.Timer(86400, run_ghost_check).start()
                 return
 
             print(f" Ghost check: {len(stale)} candidates need follow-up")
 
             if not OUTLOOK_PASSWORD:
                 print("  Ghost check: email not configured, skipping notifications")
+                threading.Timer(86400, run_ghost_check).start()
                 return
 
             # Group by VSC
@@ -2684,15 +3214,35 @@ def run_folder_watcher():
 # through the /api/intake/process pipeline.
 
 INBOX_POLL_INTERVAL = 300  # seconds
+_failed_msg_ids: set = set()  # message IDs that failed this session — skip on retry
+
+
+_SKIP_SUBJECTS = (
+    'undeliverable', 'delivery failure', 'mail delivery failed',
+    'out of office', 'automatic reply', 'auto-reply', 'autoreply',
+    'read receipt', 'non-delivery',
+)
+_SKIP_SENDERS = ('microsoft outlook', 'postmaster', 'mailer-daemon')
 
 
 def _process_inbox_message(token, msg):
     """Process a single inbox message through the pipeline (runs in its own thread)."""
     msg_id   = msg["id"]
     subject  = msg.get("subject", "")
+
+    if msg_id in _failed_msg_ids:
+        print(f"Inbox poll: skipping previously failed message '{subject[:50]}' — restart app to retry")
+        return
     from_obj = msg.get("from", {}).get("emailAddress", {})
-    candidate_email_addr = from_obj.get("address", "")
-    candidate_name       = from_obj.get("name", "") or candidate_email_addr.split("@")[0]
+    raw_from_addr = from_obj.get("address", "")
+    candidate_name = from_obj.get("name", "") or raw_from_addr.split("@")[0]
+
+    subject_lc = subject.lower()
+    sender_lc  = candidate_name.lower()
+    if any(s in subject_lc for s in _SKIP_SUBJECTS) or any(s in sender_lc for s in _SKIP_SENDERS):
+        print(f"Inbox poll: skipping system/bounce email '{subject[:60]}'")
+        _graph_mark_read(token, msg_id)
+        return
 
     # Always capture email body — it often contains cover letter content,
     # listed qualifications, or tool experience not present in the resume.
@@ -2701,6 +3251,37 @@ def _process_inbox_message(token, msg):
     if body_obj.get("contentType", "").lower() == "html":
         body_text = re.sub(r"<[^>]+>", " ", body_text)
         body_text = re.sub(r"\s+", " ", body_text).strip()
+
+    # ── Extract real candidate email ────────────────────────────────────────
+    # SJB relays applications from wfw@mysmartjobboard.com — the actual
+    # candidate email is in the Reply-To header or body text.
+    candidate_email_addr = ""
+    # 1. Check Reply-To header (most reliable for SJB)
+    reply_to_list = msg.get("replyTo", [])
+    if reply_to_list:
+        rt_addr = reply_to_list[0].get("emailAddress", {}).get("address", "")
+        if rt_addr and "mysmartjobboard" not in rt_addr.lower():
+            candidate_email_addr = rt_addr
+    # 2. Parse from email body (SJB typically embeds "Email: user@domain.com")
+    if not candidate_email_addr and body_text:
+        m = re.search(
+            r'(?:E-?mail|Email address)[:\s]+([a-zA-Z0-9._%+\-]+@(?!mysmartjobboard)[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})',
+            body_text, re.IGNORECASE
+        )
+        if m:
+            candidate_email_addr = m.group(1).strip()
+    # 3. Fallback: any non-SJB email address in the body
+    if not candidate_email_addr and body_text:
+        for match in re.finditer(r'[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}', body_text):
+            addr = match.group(0)
+            if "mysmartjobboard" not in addr and "workforwarriors" not in addr.lower():
+                candidate_email_addr = addr
+                break
+    # 4. Last resort: use the raw from address (likely SJB relay, better than empty)
+    if not candidate_email_addr:
+        candidate_email_addr = raw_from_addr
+
+    print(f"  Email resolved: {candidate_email_addr or '(none)'}")
 
     # Get the resume from attachment
     resume_text = _fetch_attachment_text(token, msg_id)
@@ -2718,14 +3299,25 @@ def _process_inbox_message(token, msg):
         _graph_mark_read(token, msg_id)
         return
 
+    # Extract all contact fields (phone, address, city, state) across every
+    # available source in a single unified pass — body and resume both searched.
+    contact = _extract_contact_fields(body_text, resume_text)
+    if contact['phones']:
+        print(f"  Phone(s): {contact['phones']}")
+    if contact['address']:
+        print(f"  Address:  {contact['address']}")
+
     payload = {
-        "subject_line":    subject,
-        "resume_text":     resume_text,
-        "candidate_name":  candidate_name,
-        "candidate_email": candidate_email_addr,
-        "candidate_phone": "",
-        "vsc_name":        VSC_DISPLAY_NAME,
-        "vsc_email":       OUTLOOK_USER,
+        "subject_line":      subject,
+        "resume_text":       resume_text,
+        "candidate_name":    candidate_name,
+        "candidate_email":   candidate_email_addr,
+        "candidate_phone":   contact['phones'],
+        "candidate_address": contact['address'],
+        "candidate_city":    contact['city'],
+        "candidate_state":   contact['state'],
+        "vsc_name":          VSC_DISPLAY_NAME,
+        "vsc_email":         OUTLOOK_USER,
     }
     success = False
     try:
@@ -2745,7 +3337,8 @@ def _process_inbox_message(token, msg):
     if success:
         _graph_mark_read(token, msg_id)
     else:
-        print(f"Inbox poll: leaving '{subject[:50]}' unread — will retry next poll")
+        _failed_msg_ids.add(msg_id)
+        print(f"Inbox poll: '{subject[:50]}' failed — marked to skip until restart")
 
 
 def run_inbox_poll():
@@ -2804,7 +3397,7 @@ if __name__ == '__main__':
     print(
         f"\nRESUME AI  Work for Warriors"
         f" | Jobs: {len(JOBS_DB)}"
-        f" | API: {'OK' if OPENROUTER_API_KEY else 'MISSING'}"
+        f" | API: {'OK' if DEEPSEEK_API_KEY else 'MISSING'}"
         f" | Graph: {'OK' if _graph_ok else 'NOT SET'}"
         f" | http://localhost:5001\n"
     )

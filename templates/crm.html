@@ -520,6 +520,10 @@
                     <input type="text" id="d_phone">
                 </div>
                 <div class="field-group">
+                    <label>Address</label>
+                    <input type="text" id="d_address" placeholder="e.g. 123 Main St">
+                </div>
+                <div class="field-group">
                     <label>City</label>
                     <input type="text" id="d_city">
                 </div>
@@ -576,6 +580,44 @@
                         </select>
                     </div>
                 </div>
+                <!-- Coaching: Materials Provided tracking -->
+                <div id="eng_materials_row" style="display:none; margin-bottom:12px; padding:10px; background:#f0f0ff; border-radius:6px; border:1px solid #aab0f5;">
+                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                        <label style="margin:0; font-weight:600; color:#3a3a8c;">Materials Provided?</label>
+                        <label style="margin:0;"><input type="radio" name="eng_materials" value="Y" onchange="updateMaterialsPrompt()"> Yes</label>
+                        <label style="margin:0;"><input type="radio" name="eng_materials" value="N" checked onchange="updateMaterialsPrompt()"> No</label>
+                    </div>
+                    <div id="eng_materials_list_row" style="display:none;">
+                        <label style="font-size:0.88em; color:#3a3a8c; font-weight:600;">Select all materials provided:</label>
+                        <select id="eng_materials_select" multiple size="6"
+                                style="width:100%; margin-top:6px; border:1px solid #aab0f5; border-radius:4px; padding:4px; font-size:0.9em;">
+                            <option value="Resume Rewrite">Resume Rewrite</option>
+                            <option value="Federal Resume Guide">Federal Resume Guide</option>
+                            <option value="Cal Careers Application Aid">Cal Careers Application Aid</option>
+                            <option value="Mock Interview Questions">Mock Interview Questions</option>
+                            <option value="Alternative Employment Opportunities">Alternative Employment Opportunities</option>
+                            <option value="Other">Other</option>
+                        </select>
+                        <p style="font-size:0.8em; color:#555; margin-top:4px;">Hold Ctrl / Cmd to select multiple. Add detail in Notes below.</p>
+                    </div>
+                </div>
+
+                <!-- Submitted: Confirmation tracking -->
+                <div id="eng_submission_row" style="display:none; margin-bottom:12px; padding:10px; background:#f0f0ff; border-radius:6px; border:1px solid #aab0f5;">
+                    <div style="display:flex; gap:20px; flex-wrap:wrap;">
+                        <div>
+                            <label style="font-weight:600; display:block; margin-bottom:4px; color:#3a3a8c;">Submission Confirmed?</label>
+                            <label style="margin-right:12px;"><input type="radio" name="eng_confirmed" value="Y"> Yes — have confirmation</label>
+                            <label><input type="radio" name="eng_confirmed" value="N" checked> Not yet confirmed</label>
+                        </div>
+                        <div>
+                            <label style="font-weight:600; display:block; margin-bottom:4px; color:#3a3a8c;">Advocated for Candidate?</label>
+                            <label style="margin-right:12px;"><input type="radio" name="eng_advocated" value="Y"> Yes — contacted employer</label>
+                            <label><input type="radio" name="eng_advocated" value="N" checked> No</label>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="field-group" style="margin-bottom:12px;">
                     <label>Notes (optional)</label>
                     <textarea id="eng_notes" style="min-height:70px;"
@@ -723,6 +765,7 @@ const ENG_TYPES = {{ engagement_types | tojson }};
 const ENG_SUBTYPES = {{ engagement_subtypes | tojson }};
 const ENG_TYPE_LABELS = {{ engagement_type_labels | tojson }};
 const ENG_SUBTYPE_LABELS = {{ engagement_subtype_labels | tojson }};
+const IS_ADMIN = {{ (current_user.role == 'admin') | tojson }};
 
 // ── State ──────────────────────────────────────────────────────────────────
 let allCandidates = [];
@@ -888,7 +931,7 @@ function populateDetail(c, submissions, emails) {
         .filter(Boolean).join(' • ');
 
     // Profile fields
-    ['first_name','last_name','email','phone','city','state',
+    ['first_name','last_name','email','phone','address','city','state',
      'branch','rank','mos','years_served','vsc_name'].forEach(f => {
         const el = document.getElementById('d_' + f);
         if (el) el.value = c[f] || '';
@@ -910,13 +953,13 @@ function populateDetail(c, submissions, emails) {
     });
 
     // Emails
-    renderEmailHistory(emails);
+    renderEmailHistory(emails, IS_ADMIN);
 
     // Submissions
     renderSubmissions(submissions);
 }
 
-function renderEmailHistory(emails) {
+function renderEmailHistory(emails, isAdmin) {
     const container = document.getElementById('emailHistoryContainer');
     if (!emails || emails.length === 0) {
         container.innerHTML = '<p class="text-muted">No emails on record for this candidate.</p>';
@@ -925,21 +968,83 @@ function renderEmailHistory(emails) {
     let html = `
         <table class="data-table">
             <thead><tr>
-                <th>Date</th><th>VSC</th><th>Template</th><th>Subject</th><th>Status</th>
+                <th>Date</th><th>VSC</th><th>Template</th><th>Subject</th><th>Status</th><th></th>
             </tr></thead><tbody>
     `;
     emails.forEach(e => {
-        const cls = e.status === 'sent' ? 'text-success' : 'text-danger';
-        html += `<tr>
+        const cls      = e.status === 'sent' ? 'text-success' : 'text-danger';
+        const archived = e.vsc_archived;
+        const rowStyle = archived ? ' style="opacity:0.5;"' : '';
+        let   actions  = '';
+        if (isAdmin) {
+            const restoreBtn = archived
+                ? `<button style="padding:2px 6px;font-size:0.75em;background:#28a745;color:white;border:none;border-radius:4px;cursor:pointer;margin-right:4px;" onclick="restoreEmailLog(${e.id},this)">Restore</button>`
+                : '';
+            actions = `${restoreBtn}<button style="padding:2px 6px;font-size:0.75em;background:#dc3545;color:white;border:none;border-radius:4px;cursor:pointer;" onclick="deleteEmailLog(${e.id},this)">Hard Delete</button>`;
+        } else {
+            actions = archived
+                ? '<span style="font-size:0.75em;color:#999;">Removed</span>'
+                : `<button style="padding:2px 6px;font-size:0.75em;background:#6c757d;color:white;border:none;border-radius:4px;cursor:pointer;" onclick="deleteEmailLog(${e.id},this)">Delete</button>`;
+        }
+        html += `<tr${rowStyle}>
             <td>${formatDate(e.sent_at)}</td>
             <td>${e.vsc_name}</td>
             <td>${e.template_label}</td>
             <td>${e.subject}</td>
             <td class="${cls}">${e.status}</td>
+            <td>${actions}</td>
         </tr>`;
     });
     html += '</tbody></table>';
     container.innerHTML = html;
+}
+
+async function deleteEmailLog(logId, btn) {
+    const isAdminAction = IS_ADMIN;
+    const msg = isAdminAction
+        ? 'Permanently delete this record? This cannot be undone.'
+        : 'Remove this email from your history? Management will still have access.';
+    if (!confirm(msg)) return;
+    btn.disabled = true;
+    try {
+        const resp = await fetch(`/api/email_logs/${logId}`, { method: 'DELETE' });
+        const data = await resp.json();
+        if (data.success) {
+            if (isAdminAction) {
+                btn.closest('tr').remove();
+            } else {
+                btn.closest('tr').style.opacity = '0.4';
+                btn.textContent = 'Removed';
+            }
+        } else {
+            showToast('Delete failed: ' + (data.error || 'unknown'), 'error');
+            btn.disabled = false;
+        }
+    } catch(e) {
+        showToast('Error: ' + e.message, 'error');
+        btn.disabled = false;
+    }
+}
+
+async function restoreEmailLog(logId, btn) {
+    if (!confirm('Restore this record to the VSC dashboard?')) return;
+    btn.disabled = true;
+    try {
+        const resp = await fetch(`/api/email_logs/${logId}/restore`, { method: 'POST' });
+        const data = await resp.json();
+        if (data.success) {
+            const row = btn.closest('tr');
+            row.style.opacity = '1';
+            btn.remove();
+            showToast('Record restored', 'success');
+        } else {
+            showToast('Restore failed', 'error');
+            btn.disabled = false;
+        }
+    } catch(e) {
+        showToast('Error: ' + e.message, 'error');
+        btn.disabled = false;
+    }
 }
 
 function renderSubmissions(subs) {
@@ -1007,7 +1112,7 @@ async function changeStage(stage) {
 // ── Save profile ───────────────────────────────────────────────────────────
 async function saveProfile() {
     if (!currentCandidate) return;
-    const fields = ['first_name','last_name','email','phone','city','state',
+    const fields = ['first_name','last_name','email','phone','address','city','state',
                     'branch','rank','mos','years_served','vsc_name'];
     const data = {};
     fields.forEach(f => {
@@ -1289,13 +1394,27 @@ function updateEngSubtypes() {
         sub.innerHTML = '<option value="">Select method...</option>' +
             options.map(k => `<option value="${k}">${ENG_SUBTYPE_LABELS[k] || k}</option>`).join('');
     }
+    // Show/hide context panels
+    document.getElementById('eng_materials_row').style.display  = (type === 'COACHING')   ? 'block' : 'none';
+    document.getElementById('eng_submission_row').style.display = (type === 'SUBMITTED')  ? 'block' : 'none';
+    // Reset toggles when switching types
+    document.querySelectorAll('input[name="eng_materials"]').forEach(r => { if (r.value === 'N') r.checked = true; });
+    document.querySelectorAll('input[name="eng_confirmed"]').forEach(r => { if (r.value === 'N') r.checked = true; });
+    document.querySelectorAll('input[name="eng_advocated"]').forEach(r => { if (r.value === 'N') r.checked = true; });
+    document.getElementById('eng_materials_list_row').style.display = 'none';
+    Array.from(document.getElementById('eng_materials_select').options).forEach(o => o.selected = false);
+}
+
+function updateMaterialsPrompt() {
+    const provided = document.querySelector('input[name="eng_materials"]:checked')?.value === 'Y';
+    document.getElementById('eng_materials_list_row').style.display = provided ? 'block' : 'none';
 }
 
 async function logEngagement() {
     if (!currentCandidate) return;
     const type    = document.getElementById('eng_type').value;
     const subtype = document.getElementById('eng_subtype').value;
-    const notes   = document.getElementById('eng_notes').value.trim();
+    let   notes   = document.getElementById('eng_notes').value.trim();
     const vsc     = document.getElementById('d_vsc_name').value.trim() ||
                     currentCandidate.vsc_name || 'VSC';
 
@@ -1304,6 +1423,27 @@ async function logEngagement() {
     const subtypes = ENG_SUBTYPES[type] || [];
     if (subtypes.length > 0 && !subtype) {
         showToast('Select a method / subtype', 'error'); return;
+    }
+
+    // Append coaching materials metadata to notes
+    if (type === 'COACHING') {
+        const materialsProvided = document.querySelector('input[name="eng_materials"]:checked')?.value || 'N';
+        if (materialsProvided === 'Y') {
+            const sel = document.getElementById('eng_materials_select');
+            const selected = Array.from(sel.selectedOptions).map(o => o.value);
+            const matNote = `[MATERIALS PROVIDED: ${selected.length ? selected.join(', ') : 'See notes'}]`;
+            notes = notes ? `${matNote}\n${notes}` : matNote;
+        } else {
+            notes = notes ? `[MATERIALS PROVIDED: N]\n${notes}` : '[MATERIALS PROVIDED: N]';
+        }
+    }
+
+    // Append submission confirmation metadata to notes
+    if (type === 'SUBMITTED') {
+        const confirmed = document.querySelector('input[name="eng_confirmed"]:checked')?.value || 'N';
+        const advocated = document.querySelector('input[name="eng_advocated"]:checked')?.value || 'N';
+        const subNote = `[SUBMISSION CONFIRMED: ${confirmed}] [ADVOCATED: ${advocated}]`;
+        notes = notes ? `${subNote}\n${notes}` : subNote;
     }
 
     try {

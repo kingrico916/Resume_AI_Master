@@ -34,7 +34,7 @@ TEMPLATES = [
         "subject": "Next Steps – Work For Warriors",
         "body": """Dear {candidate_name},
 
-Thank you for your interest in the {job_title} opportunity.
+Thank you for connecting with Work For Warriors and your interest in the {job_title} opportunity.
 
 I will be your point of contact throughout this process. Reply with the following information prior to our meeting:
 
@@ -89,7 +89,7 @@ Work for Warriors"""
         "subject": "Interview Invitation – {job_title}",
         "body": """Dear {candidate_name},
 
-Thank you for your interest in the {job_title} position with Work For Warriors. After reviewing your background, we recognize the strength of your qualifications and would like to invite you to move forward in the selection process.
+Thank you for connecting with Work For Warriors and your interest in the {job_title} position. After reviewing everything, I encourage you to move forward in the application process and would like to schedule a time to communicate the options available to you.
 
 Interview Details:
   Date:          {interview_date}
@@ -102,8 +102,7 @@ Confirm your availability or advise if an alternate time is needed.
 Respectfully,
 
 {vsc_name}
-Veteran Services Coordinator
-Work for Warriors"""
+Veteran Services Coordinator"""
     },
     {
         "key": "post_meeting",
@@ -114,7 +113,7 @@ Work for Warriors"""
         "subject": "Next Steps After Our Meeting",
         "body": """Dear {candidate_name},
 
-A few things to keep in mind as you move forward:
+Thank you for connecting with Work For Warriors. A few things to keep in mind as you move forward:
 
 Our Smart Jobs Board is your primary resource. Check it regularly and continue applying to positions that interest you. Once you apply, the assigned Veteran Staffing Consultant will reach out to guide you through the next steps.
 
@@ -137,9 +136,9 @@ Work for Warriors"""
         "subject": "Rescheduling Our Meeting",
         "body": """Dear {candidate_name},
 
-I noticed we missed our scheduled meeting. I understand things come up and would still like to connect.
+Thank you for allowing me to assist in your employment search. I noticed we missed our scheduled meeting. I understand things come up and would still like to connect.
 
-Use the scheduling link in my signature to select a new time. If I don't hear back after a couple of follow-ups, I'll assume you're no longer pursuing support at this time — but you're always welcome to reconnect.
+Use the scheduling link in my signature to select a new time. If I don't hear back after a couple of follow-ups, I'll assume you're no longer pursuing support at this time — but you're always welcome to reconnect with Work For Warriors should the need arise.
 
 Respectfully,
 
@@ -158,9 +157,9 @@ Work for Warriors"""
 
 I've officially submitted you for the {job_title} position with {company_name}.
 
-At this stage, the employer will take over the process. If you're contacted for an interview or receive any updates, keep me informed.
+At this stage, the employer will take over the process. If you're contacted for an interview or receive any updates, keep Work For Warriors informed.
 
-If feedback is provided, share it so we can apply it moving forward.
+If any feedback is provided by the employer, please share it so we can apply it to future candidates moving forward.
 
 Best,
 
@@ -179,9 +178,9 @@ Work for Warriors"""
 
 I've submitted you for the {job_title} opportunity and advocated on your behalf with the employer.
 
-Due to union or confidentiality policies, I may not receive updates. If you hear anything — interview, offer, or start date — let me know via text or call.
+Due to union or confidentiality policies, Work For Warriors may not receive decision updates. If you hear anything — interview, offer, or start date — let us know via text or call.
 
-If you're not selected, share any feedback so we can strengthen future submissions.
+In the event you're not selected, please share any significant feedback so we can strengthen future submissions.
 
 I'm here if you need anything along the way.
 
@@ -200,7 +199,7 @@ Work for Warriors"""
 
 I wanted to follow up regarding the {job_title} position. The employer has chosen to move forward with other candidates.
 
-If any feedback was shared, send it my way so we can strengthen future opportunities. Don't get discouraged — this is just one step in the process.
+If any significant feedback was shared, send it my way so we can strengthen future opportunities. Don't get discouraged — this is just one step in the process.
 
 I'm here to support you however I can.
 
@@ -330,7 +329,7 @@ Your application for the {job_title} position at {company_name} is under review.
 
 Most employers run résumés through an Applicant Tracking System (ATS) before a human ever sees the file. These systems scan for exact keywords. If a qualification is not explicitly stated on your résumé — even one you clearly possess — the system will automatically reject your application. You will never know it happened.
 
-To prevent that, please reply and confirm the following:
+To prevent that, it's ocassionally helpful to ask additional questions. When this is the case, please reply promptly and confirm even if you have mentioned it previously.
 
 {verification_required}
 

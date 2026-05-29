@@ -342,6 +342,10 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- Preview trigger — always visible once a template is selected -->
+    <div id="previewTriggerSection" style="display:none; margin-bottom:16px;">
         <button class="btn btn-secondary" onclick="previewEmail()">Preview Email</button>
     </div>
 
@@ -461,6 +465,9 @@
         document.getElementById('interviewFields').style.display =
             fields.includes('interview_date') ? 'grid' : 'none';
 
+        // Show preview trigger button regardless of whether optional fields exist
+        document.getElementById('previewTriggerSection').style.display = 'block';
+
         // Custom saved templates: pre-fill body/subject directly (no server preview needed)
         if (tmpl && tmpl.custom) {
             document.getElementById('emailSubject').value = tmpl.subject || '';
@@ -481,9 +488,10 @@
     function startCustomCompose() {
         document.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
         selectedTemplateKey = 'custom';
-        document.getElementById('optionalSection').style.display  = 'none';
-        document.getElementById('composeSection').style.display   = 'block';
-        document.getElementById('composeTitle').textContent       = 'Custom Email';
+        document.getElementById('optionalSection').style.display       = 'none';
+        document.getElementById('previewTriggerSection').style.display = 'none';
+        document.getElementById('composeSection').style.display        = 'block';
+        document.getElementById('composeTitle').textContent            = 'Custom Email';
         document.getElementById('emailSubject').value = '';
         document.getElementById('emailBody').value    = '';
         document.getElementById('emailSubject').focus();
@@ -625,10 +633,13 @@
     }
 
     // ── History ────────────────────────────────────────────────────────────────
+    let _isAdmin = false;
+
     async function loadHistory() {
         try {
             const resp = await fetch('/api/email_history');
             const data = await resp.json();
+            _isAdmin = data.is_admin || false;
             renderHistory(data.history);
         } catch(e) {
             showToast('Failed to load history: ' + e.message, 'error');
@@ -652,6 +663,7 @@
                         <th>Template</th>
                         <th>Subject</th>
                         <th>Status</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -659,19 +671,79 @@
         history.forEach(row => {
             const statusClass = row.status === 'sent' ? 'badge-sent' : 'badge-failed';
             const statusText  = row.status === 'sent' ? 'Sent' : 'Failed';
+            const archived    = row.vsc_archived;
+            const rowStyle    = archived ? ' style="opacity:0.5;"' : '';
+            let   actions     = '';
+            if (_isAdmin) {
+                const restoreBtn = archived
+                    ? `<button style="padding:2px 6px;font-size:0.75em;background:#28a745;color:white;border:none;border-radius:4px;cursor:pointer;margin-right:4px;" onclick="restoreEmailLogEM(${row.id},this)">Restore</button>`
+                    : '';
+                actions = `<td>${restoreBtn}<button style="padding:2px 6px;font-size:0.75em;background:#dc3545;color:white;border:none;border-radius:4px;cursor:pointer;" onclick="deleteEmailLogEM(${row.id},this)">Hard Delete</button></td>`;
+            } else {
+                actions = archived
+                    ? '<td style="font-size:0.75em;color:#999;">Removed</td>'
+                    : `<td><button style="padding:2px 6px;font-size:0.75em;background:#6c757d;color:white;border:none;border-radius:4px;cursor:pointer;" onclick="deleteEmailLogEM(${row.id},this)">Delete</button></td>`;
+            }
             html += `
-                <tr>
+                <tr${rowStyle}>
                     <td>${formatDate(row.sent_at)}</td>
                     <td>${row.vsc_name}</td>
                     <td>${row.to_name}<br><small style="color:#888">${row.to_email}</small></td>
                     <td>${row.template_label}</td>
                     <td>${row.subject}</td>
                     <td class="${statusClass}">${statusText}</td>
+                    ${actions}
                 </tr>
             `;
         });
         html += '</tbody></table>';
         container.innerHTML = html;
+    }
+
+    async function deleteEmailLogEM(logId, btn) {
+        const msg = _isAdmin
+            ? 'Permanently delete this record? This cannot be undone.'
+            : 'Remove this email from your history? Management will still have access.';
+        if (!confirm(msg)) return;
+        btn.disabled = true;
+        try {
+            const resp = await fetch(`/api/email_logs/${logId}`, { method: 'DELETE' });
+            const data = await resp.json();
+            if (data.success) {
+                if (_isAdmin) {
+                    btn.closest('tr').remove();
+                } else {
+                    btn.closest('tr').style.opacity = '0.4';
+                    btn.replaceWith(document.createTextNode('Removed'));
+                }
+            } else {
+                showToast('Delete failed', 'error');
+                btn.disabled = false;
+            }
+        } catch(e) {
+            showToast('Error: ' + e.message, 'error');
+            btn.disabled = false;
+        }
+    }
+
+    async function restoreEmailLogEM(logId, btn) {
+        if (!confirm('Restore this record to the VSC dashboard?')) return;
+        btn.disabled = true;
+        try {
+            const resp = await fetch(`/api/email_logs/${logId}/restore`, { method: 'POST' });
+            const data = await resp.json();
+            if (data.success) {
+                btn.closest('tr').style.opacity = '1';
+                btn.remove();
+                showToast('Record restored', 'success');
+            } else {
+                showToast('Restore failed', 'error');
+                btn.disabled = false;
+            }
+        } catch(e) {
+            showToast('Error: ' + e.message, 'error');
+            btn.disabled = false;
+        }
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────
@@ -699,8 +771,9 @@
         document.getElementById('interviewLocation').value = '';
         document.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
         selectedTemplateKey = null;
-        document.getElementById('optionalSection').style.display  = 'none';
-        document.getElementById('composeSection').style.display   = 'none';
+        document.getElementById('optionalSection').style.display       = 'none';
+        document.getElementById('previewTriggerSection').style.display = 'none';
+        document.getElementById('composeSection').style.display        = 'none';
         document.getElementById('composeTitle').textContent = 'Compose';
     }
 

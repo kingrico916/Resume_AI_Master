@@ -69,11 +69,11 @@ MILITARY_BRANCHES = [
 ENGAGEMENT_TYPES = ["INTAKE", "COUNSELING", "MEETING", "COACHING", "SUBMITTED"]
 
 ENGAGEMENT_SUBTYPES = {
-    "INTAKE":     [],
+    "INTAKE":     ["PHONE", "EMAIL", "IN_PERSON"],
     "COUNSELING": ["PHONE", "EMAIL", "IN_PERSON"],
     "MEETING":    ["VIRTUAL", "IN_PERSON", "PHONE", "MISSED"],
     "COACHING":   ["PHONE", "EMAIL", "IN_PERSON", "MOCK_INTERVIEW", "RESUME_REVIEW", "INTERVIEW_PREP"],
-    "SUBMITTED":  [],
+    "SUBMITTED":  ["CONFIRMED", "UNCONFIRMED"],
 }
 
 ENGAGEMENT_TYPE_LABELS = {
@@ -85,14 +85,16 @@ ENGAGEMENT_TYPE_LABELS = {
 }
 
 ENGAGEMENT_SUBTYPE_LABELS = {
-    "PHONE":          "Phone",
-    "EMAIL":          "Email",
-    "IN_PERSON":      "In-Person",
-    "VIRTUAL":        "Virtual",
-    "MISSED":         "Missed",
-    "MOCK_INTERVIEW": "Mock Interview",
-    "RESUME_REVIEW":  "Resume Review",
-    "INTERVIEW_PREP": "Interview Prep",
+    "PHONE":              "Phone",
+    "EMAIL":              "Email",
+    "IN_PERSON":          "In-Person",
+    "VIRTUAL":            "Virtual",
+    "MISSED":             "Missed",
+    "MOCK_INTERVIEW":     "Mock Interview",
+    "RESUME_REVIEW":      "Resume Review",
+    "INTERVIEW_PREP":     "Interview Prep",
+    "CONFIRMED":          "Confirmed",
+    "UNCONFIRMED":        "Unconfirmed",
 }
 
 # ── Connection ────────────────────────────────────────────────────────────────
@@ -134,6 +136,18 @@ def init_db():
     # Add candidate_id to email_logs if it doesn't exist (migration)
     try:
         c.execute("ALTER TABLE email_logs ADD COLUMN candidate_id INTEGER")
+    except Exception:
+        pass  # Column already exists
+
+    # Add vsc_archived flag — lets VSCs hide their own history while admin retains access
+    try:
+        c.execute("ALTER TABLE email_logs ADD COLUMN vsc_archived INTEGER NOT NULL DEFAULT 0")
+    except Exception:
+        pass  # Column already exists
+
+    # Add street address to candidate profiles
+    try:
+        c.execute("ALTER TABLE candidates ADD COLUMN address TEXT DEFAULT ''")
     except Exception:
         pass  # Column already exists
 
@@ -313,29 +327,64 @@ def log_email(vsc_name, vsc_email, to_name, to_email,
     return row_id
 
 
-def get_email_history(limit=50, candidate_email=None):
+def get_email_history(limit=50, candidate_email=None, include_archived=False):
     conn = get_connection()
     c = conn.cursor()
+    archive_clause = "" if include_archived else "AND COALESCE(vsc_archived, 0) = 0"
     if candidate_email:
-        c.execute("""
+        c.execute(f"""
             SELECT id, sent_at, vsc_name, to_name, to_email,
-                   template_label, subject, status, candidate_id
+                   template_label, subject, status, candidate_id, COALESCE(vsc_archived,0) AS vsc_archived
             FROM email_logs
-            WHERE to_email = ?
+            WHERE to_email = ? {archive_clause}
             ORDER BY sent_at DESC
             LIMIT ?
         """, (candidate_email, limit))
     else:
-        c.execute("""
+        c.execute(f"""
             SELECT id, sent_at, vsc_name, to_name, to_email,
-                   template_label, subject, status, candidate_id
+                   template_label, subject, status, candidate_id, COALESCE(vsc_archived,0) AS vsc_archived
             FROM email_logs
+            WHERE 1=1 {archive_clause}
             ORDER BY sent_at DESC
             LIMIT ?
         """, (limit,))
     rows = [dict(r) for r in c.fetchall()]
     conn.close()
     return rows
+
+
+def archive_email_log(log_id: int) -> bool:
+    """Soft-archive for VSC — hides from VSC dashboard, admin log retains the record."""
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("UPDATE email_logs SET vsc_archived = 1 WHERE id = ?", (log_id,))
+    affected = c.rowcount
+    conn.commit()
+    conn.close()
+    return affected > 0
+
+
+def restore_email_log(log_id: int) -> bool:
+    """Admin only — un-archive a VSC-deleted entry so it reappears on the VSC dashboard."""
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("UPDATE email_logs SET vsc_archived = 0 WHERE id = ?", (log_id,))
+    affected = c.rowcount
+    conn.commit()
+    conn.close()
+    return affected > 0
+
+
+def hard_delete_email_log(log_id: int) -> bool:
+    """Admin only — permanently removes the record from the database."""
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("DELETE FROM email_logs WHERE id = ?", (log_id,))
+    affected = c.rowcount
+    conn.commit()
+    conn.close()
+    return affected > 0
 
 
 def get_email_stats():
@@ -366,15 +415,16 @@ def create_candidate(data: dict) -> int:
     c.execute("""
         INSERT INTO candidates
             (vsc_name, first_name, last_name, email, phone,
-             city, state, branch, rank, mos, years_served,
+             address, city, state, branch, rank, mos, years_served,
              stage, notes, resume_text, source)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         data.get("vsc_name", ""),
         data.get("first_name", ""),
         data.get("last_name", ""),
         data.get("email", ""),
         data.get("phone", ""),
+        data.get("address", ""),
         data.get("city", ""),
         data.get("state", ""),
         data.get("branch", ""),
@@ -432,7 +482,7 @@ def get_candidate(candidate_id: int) -> dict:
 def update_candidate(candidate_id: int, data: dict) -> bool:
     allowed = {
         "vsc_name", "first_name", "last_name", "email", "phone",
-        "city", "state", "branch", "rank", "mos", "years_served",
+        "address", "city", "state", "branch", "rank", "mos", "years_served",
         "stage", "notes", "resume_text", "source"
     }
     fields = {k: v for k, v in data.items() if k in allowed}
